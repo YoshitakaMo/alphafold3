@@ -16,19 +16,21 @@ readme = "README.md"
 license = {file = "LICENSE"}
 dependencies = [
     "absl-py",
-    "dm-haiku==0.0.13",
+    "dm-haiku==0.0.14",
     "dm-tree",
-    "jax==0.4.34",
-    "jax[cuda12]==0.4.34",
-    "jax-triton==0.2.0",
-    "jaxtyping==0.2.34",
+    "jax==0.6.0",
+    "jax-triton",
+    "jaxtyping",
     "numpy",
     "rdkit==2024.3.5",
-    "triton==3.1.0",
+    "triton==3.4.0",
     "tqdm",
     "typeguard==2.13.3",
     "zstandard",
 ]
+
+[tool.uv.sources]
+triton = { git = "https://github.com/triton-lang/triton.git", tag = "v3.4.0" }
 
 [project.optional-dependencies]
 test = ["pytest>=6.0"]
