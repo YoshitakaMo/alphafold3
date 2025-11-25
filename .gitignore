@@ -15,3 +15,7 @@ wheels/
 uv.lock
 # data dir
 data/
+
+# generated files
+ccd.pickle
+chemical_component_sets.pickle
