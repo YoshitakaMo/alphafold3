@@ -15,6 +15,7 @@ extraction which are not shown in this file. You can find them in cif_dict.clif
 together with docstrings. The cif_dict.CifDict class behaves like an immutable
 Python dictionary (some methods are not implemented though).
 """
+
 from collections.abc import Callable, Mapping, Sequence
 import functools
 import itertools
@@ -31,8 +32,8 @@ import numpy as np
 Mmcif = cif_dict.CifDict
 
 
-_P = ParamSpec('_P')
-_T = TypeVar('_T')
+_P = ParamSpec("_P")
+_T = TypeVar("_T")
 _WappedFn: TypeAlias = Callable[_P, _T]
 
 
@@ -49,14 +50,14 @@ def int_id_to_str_id(num: int) -> str:
     usual way to encode chain IDs in mmCIF files.
   """
   if num <= 0:
-    raise ValueError(f'Only positive integers allowed, got {num}.')
+    raise ValueError(f"Only positive integers allowed, got {num}.")
 
   num = num - 1  # 1-based indexing.
   output = []
   while num >= 0:
-    output.append(chr(num % 26 + ord('A')))
+    output.append(chr(num % 26 + ord("A")))
     num = num // 26 - 1
-  return ''.join(output)
+  return "".join(output)
 
 
 @functools.lru_cache(maxsize=256)
@@ -73,10 +74,10 @@ def str_id_to_int_id(str_id: str) -> int:
     An integer that can be used to order mmCIF chain IDs in the standard
     (reverse spreadsheet style) ordering.
   """
-  if not re.match('^[A-Z]+$', str_id):
-    raise ValueError(f'String ID must be upper case letters, got {str_id}.')
+  if not re.match("^[A-Z]+$", str_id):
+    raise ValueError(f"String ID must be upper case letters, got {str_id}.")
 
-  offset = ord('A') - 1
+  offset = ord("A") - 1
   output = 0
   for i, c in enumerate(str_id):
     output += (ord(c) - offset) * int(26**i)
@@ -120,8 +121,8 @@ class BondParsingError(Exception):
 
 
 def get_bond_atom_indices(
-    mmcif: Mmcif,
-    model_id: str = '1',
+  mmcif: Mmcif,
+  model_id: str = "1",
 ) -> tuple[Sequence[int], Sequence[int]]:
   """Extracts the indices of the atoms that participate in bonds.
 
@@ -152,7 +153,7 @@ def get_bond_atom_indices(
 
 
 def get_or_infer_type_symbol(
-    mmcif: Mmcif, ccd: chemical_components.Ccd | None = None
+  mmcif: Mmcif, ccd: chemical_components.Ccd | None = None
 ) -> Sequence[str]:
   """Returns the type symbol (element) for all of the atoms.
 
@@ -167,7 +168,7 @@ def get_or_infer_type_symbol(
   """
   ccd = ccd or chemical_components.Ccd()
   type_symbol_fn = lambda res_name, atom_name: chemical_components.type_symbol(
-      ccd, res_name, atom_name
+    ccd, res_name, atom_name
   )
   return mmcif_atom_site.get_or_infer_type_symbol(mmcif, type_symbol_fn)
 
@@ -181,13 +182,13 @@ def get_chain_type_by_entity_id(mmcif: Mmcif) -> Mapping[str, str]:
   Args:
     mmcif: CifDict holding the mmCIF.
   """
-  poly_entity_id = mmcif.get('_entity_poly.entity_id', [])
-  poly_type = mmcif.get('_entity_poly.type', [])
+  poly_entity_id = mmcif.get("_entity_poly.entity_id", [])
+  poly_type = mmcif.get("_entity_poly.type", [])
   poly_type_by_entity_id = dict(zip(poly_entity_id, poly_type, strict=True))
 
   chain_type_by_entity_id = {}
   for entity_id, entity_type in zip(
-      mmcif.get('_entity.id', []), mmcif.get('_entity.type', []), strict=True
+    mmcif.get("_entity.id", []), mmcif.get("_entity.type", []), strict=True
   ):
     chain_type = poly_type_by_entity_id.get(entity_id) or entity_type
     chain_type_by_entity_id[entity_id] = chain_type
@@ -210,17 +211,17 @@ def get_internal_to_author_chain_id_map(mmcif: Mmcif) -> Mapping[str, str]:
 
 
 def get_experimental_method(mmcif: Mmcif) -> str | None:
-  field = '_exptl.method'
-  return ','.join(mmcif[field]).lower() if field in mmcif else None
+  field = "_exptl.method"
+  return ",".join(mmcif[field]).lower() if field in mmcif else None
 
 
 def get_release_date(mmcif: Mmcif) -> str | None:
   """Returns the oldest revision date."""
-  if '_pdbx_audit_revision_history.revision_date' not in mmcif:
+  if "_pdbx_audit_revision_history.revision_date" not in mmcif:
     return None
 
   # Release dates are ISO-8601, hence sort well.
-  return min(mmcif['_pdbx_audit_revision_history.revision_date'])
+  return min(mmcif["_pdbx_audit_revision_history.revision_date"])
 
 
 def get_resolution(mmcif: Mmcif) -> float | None:
@@ -237,9 +238,11 @@ def get_resolution(mmcif: Mmcif) -> float | None:
   Returns:
     The resolution as reported in the mmCIF.
   """
-  for res_key in ('_refine.ls_d_res_high',
-                  '_em_3d_reconstruction.resolution',
-                  '_reflns.d_resolution_high'):
+  for res_key in (
+    "_refine.ls_d_res_high",
+    "_em_3d_reconstruction.resolution",
+    "_reflns.d_resolution_high",
+  ):
     if res_key in mmcif:
       try:
         raw_resolution = mmcif[res_key][0]
@@ -274,30 +277,30 @@ def parse_oper_expr(oper_expression: str) -> list[tuple[str, ...]]:
     A list with one element for each chain copy that should be generated.
     Each element is a list of transform ids to apply.
   """
+
   # Expand ranges, e.g. 1-4 -> 1,2,3,4.
   def range_expander(match):
-    return ','.join(
-        [str(i) for i in range(int(match.group(1)),
-                               int(match.group(2)) + 1)])
+    return ",".join(
+      [str(i) for i in range(int(match.group(1)), int(match.group(2)) + 1)]
+    )
 
-  ranges_expanded = re.sub(r'\b(\d+)-(\d+)', range_expander, oper_expression)
+  ranges_expanded = re.sub(r"\b(\d+)-(\d+)", range_expander, oper_expression)
 
-  if re.fullmatch(r'(\w+,)*\w+', ranges_expanded):
+  if re.fullmatch(r"(\w+,)*\w+", ranges_expanded):
     # No brackets, just a single range, e.g. "1,2,3".
-    return [(t,) for t in ranges_expanded.split(',')]
-  elif re.fullmatch(r'\((\w+,)*\w+\)', ranges_expanded):
+    return [(t,) for t in ranges_expanded.split(",")]
+  elif re.fullmatch(r"\((\w+,)*\w+\)", ranges_expanded):
     # Single range in brackets, e.g. "(1,2,3)".
-    return [(t,) for t in ranges_expanded[1:-1].split(',')]
-  elif re.fullmatch(r'\((\w+,)*\w+\)\((\w+,)*\w+\)', ranges_expanded):
+    return [(t,) for t in ranges_expanded[1:-1].split(",")]
+  elif re.fullmatch(r"\((\w+,)*\w+\)\((\w+,)*\w+\)", ranges_expanded):
     # Cartesian product of two ranges, e.g. "(1,2,3)(4,5)".
-    part1, part2 = ranges_expanded[1:-1].split(')(')
-    return list(itertools.product(part1.split(','), part2.split(',')))
+    part1, part2 = ranges_expanded[1:-1].split(")(")
+    return list(itertools.product(part1.split(","), part2.split(",")))
   else:
-    raise ValueError(f'Unsupported oper_expression format: {oper_expression}')
+    raise ValueError(f"Unsupported oper_expression format: {oper_expression}")
 
 
-def format_float_array(
-    values: np.ndarray, num_decimal_places: int) -> Sequence[str]:
+def format_float_array(values: np.ndarray, num_decimal_places: int) -> Sequence[str]:
   """Converts 1D array to a list of strings with the given number of decimals.
 
   This function is faster than converting via Python list comprehension, e.g.:
@@ -314,8 +317,8 @@ def format_float_array(
     A list of formatted strings.
   """
   if values.ndim != 1:
-    raise ValueError(f'The given array must be 1D, got {values.ndim}D')
+    raise ValueError(f"The given array must be 1D, got {values.ndim}D")
 
   return string_array.format_float_array(
-      values=values.astype(np.float32), num_decimal_places=num_decimal_places
+    values=values.astype(np.float32), num_decimal_places=num_decimal_places
   )

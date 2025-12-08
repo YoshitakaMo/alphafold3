@@ -10,11 +10,11 @@
 
 """Library for loading structure data from various sources."""
 
-from collections.abc import Mapping, Sequence
 import functools
 import os
 import pathlib
 import tarfile
+from collections.abc import Mapping, Sequence
 
 
 class NotFoundError(KeyError):
@@ -25,8 +25,8 @@ class StructureStore:
   """Handles the retrieval of mmCIF files from a filesystem."""
 
   def __init__(
-      self,
-      structures: str | os.PathLike[str] | Mapping[str, str],
+    self,
+    structures: str | os.PathLike[str] | Mapping[str, str],
   ):
     """Initialises the instance.
 
@@ -41,8 +41,8 @@ class StructureStore:
     else:
       self._structure_mapping = None
       path_str = os.fspath(structures)
-      if path_str.endswith('.tar'):
-        self._structure_tar = tarfile.open(path_str, 'r')
+      if path_str.endswith(".tar"):
+        self._structure_tar = tarfile.open(path_str, "r")
         self._structure_path = None
       else:
         self._structure_path = pathlib.Path(structures)
@@ -52,10 +52,10 @@ class StructureStore:
   def _tar_members(self) -> Mapping[str, tarfile.TarInfo]:
     assert self._structure_tar is not None
     return {
-        path.stem: tarinfo
-        for tarinfo in self._structure_tar.getmembers()
-        if tarinfo.isfile()
-        and (path := pathlib.Path(tarinfo.path.lower())).suffix == '.cif'
+      path.stem: tarinfo
+      for tarinfo in self._structure_tar.getmembers()
+      if tarinfo.isfile()
+      and (path := pathlib.Path(tarinfo.path.lower())).suffix == ".cif"
     }
 
   def get_mmcif_str(self, target_name: str) -> str:
@@ -71,7 +71,7 @@ class StructureStore:
       try:
         return self._structure_mapping[target_name]
       except KeyError as e:
-        raise NotFoundError(f'{target_name=} not found') from e
+        raise NotFoundError(f"{target_name=} not found") from e
 
     if self._structure_tar is not None:
       try:
@@ -79,15 +79,15 @@ class StructureStore:
         if struct_file := self._structure_tar.extractfile(member):
           return struct_file.read().decode()
         else:
-          raise NotFoundError(f'{target_name=} not found')
+          raise NotFoundError(f"{target_name=} not found")
       except KeyError:
-        raise NotFoundError(f'{target_name=} not found') from None
+        raise NotFoundError(f"{target_name=} not found") from None
 
-    filepath = self._structure_path / f'{target_name}.cif'
+    filepath = self._structure_path / f"{target_name}.cif"
     try:
       return filepath.read_text()
     except FileNotFoundError as e:
-      raise NotFoundError(f'{target_name=} not found at {filepath=}') from e
+      raise NotFoundError(f"{target_name=} not found at {filepath=}") from e
 
   def target_names(self) -> Sequence[str]:
     """Returns all targets in the store."""
@@ -96,5 +96,5 @@ class StructureStore:
     elif self._structure_tar is not None:
       return sorted(self._tar_members.keys())
     elif self._structure_path is not None:
-      return sorted([path.stem for path in self._structure_path.glob('*.cif')])
+      return sorted([path.stem for path in self._structure_path.glob("*.cif")])
     return ()

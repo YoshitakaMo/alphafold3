@@ -23,11 +23,11 @@ class Hmmbuild(object):
   """Python wrapper of the hmmbuild binary."""
 
   def __init__(
-      self,
-      *,
-      binary_path: str,
-      singlemx: bool = False,
-      alphabet: str | None = None,
+    self,
+    *,
+    binary_path: str,
+    singlemx: bool = False,
+    alphabet: str | None = None,
   ):
     """Initializes the Python hmmbuild wrapper.
 
@@ -45,11 +45,9 @@ class Hmmbuild(object):
     self._singlemx = singlemx
     self._alphabet = alphabet
 
-    subprocess_utils.check_binary_exists(
-        path=self._binary_path, name='hmmbuild'
-    )
+    subprocess_utils.check_binary_exists(path=self._binary_path, name="hmmbuild")
 
-  def build_profile_from_sto(self, sto: str, model_construction='fast') -> str:
+  def build_profile_from_sto(self, sto: str, model_construction="fast") -> str:
     """Builds a HHM for the aligned sequences given as an A3M string.
 
     Args:
@@ -64,7 +62,7 @@ class Hmmbuild(object):
       RuntimeError: If hmmbuild fails.
     """
     return self._build_profile(
-        sto, informat='stockholm', model_construction=model_construction
+      sto, informat="stockholm", model_construction=model_construction
     )
 
   def build_profile_from_a3m(self, a3m: str) -> str:
@@ -81,16 +79,16 @@ class Hmmbuild(object):
     """
     lines = []
     for sequence, description in parsers.lazy_parse_fasta_string(a3m):
-      sequence = re.sub('[a-z]+', '', sequence)  # Remove inserted residues.
-      lines.append(f'>{description}\n{sequence}\n')
-    msa = ''.join(lines)
-    return self._build_profile(msa, informat='afa')
+      sequence = re.sub("[a-z]+", "", sequence)  # Remove inserted residues.
+      lines.append(f">{description}\n{sequence}\n")
+    msa = "".join(lines)
+    return self._build_profile(msa, informat="afa")
 
   def _build_profile(
-      self,
-      msa: str,
-      informat: Literal['afa', 'stockholm'],
-      model_construction: str = 'fast',
+    self,
+    msa: str,
+    informat: Literal["afa", "stockholm"],
+    model_construction: str = "fast",
   ) -> str:
     """Builds a HMM for the aligned sequences given as an MSA string.
 
@@ -106,38 +104,41 @@ class Hmmbuild(object):
     Raises:
       RuntimeError: If hmmbuild fails.
       ValueError: If unspecified arguments are provided.
+
+    Run command: /home/apps/hmmer/3.4/bin/hmmbuild --informat stockholm --hand --amino
+                 /tmp/tmp02r9yngp/output.hmm /tmp/tmp02r9yngp/query.msa
     """
-    if model_construction not in {'hand', 'fast'}:
-      raise ValueError(f'Bad {model_construction=}. Only hand or fast allowed.')
+    if model_construction not in {"hand", "fast"}:
+      raise ValueError(f"Bad {model_construction=}. Only hand or fast allowed.")
 
     with tempfile.TemporaryDirectory() as query_tmp_dir:
-      input_msa_path = os.path.join(query_tmp_dir, 'query.msa')
-      output_hmm_path = os.path.join(query_tmp_dir, 'output.hmm')
+      input_msa_path = os.path.join(query_tmp_dir, "query.msa")
+      output_hmm_path = os.path.join(query_tmp_dir, "output.hmm")
 
-      with open(input_msa_path, 'w') as f:
+      with open(input_msa_path, "w") as f:
         f.write(msa)
 
       # Specify the format as we don't specify the input file extension. See
       # https://github.com/EddyRivasLab/hmmer/issues/321 for more details.
-      cmd_flags = ['--informat', informat]
+      cmd_flags = ["--informat", informat]
       # If adding flags, we have to do so before the output and input:
-      if model_construction == 'hand':
-        cmd_flags.append(f'--{model_construction}')
+      if model_construction == "hand":
+        cmd_flags.append(f"--{model_construction}")
       if self._singlemx:
-        cmd_flags.append('--singlemx')
+        cmd_flags.append("--singlemx")
       if self._alphabet:
-        cmd_flags.append(f'--{self._alphabet}')
+        cmd_flags.append(f"--{self._alphabet}")
 
       cmd_flags.extend([output_hmm_path, input_msa_path])
 
       cmd = [self._binary_path, *cmd_flags]
 
       subprocess_utils.run(
-          cmd=cmd,
-          cmd_name='Hmmbuild',
-          log_stdout=False,
-          log_stderr=True,
-          log_on_process_error=True,
+        cmd=cmd,
+        cmd_name="Hmmbuild",
+        log_stdout=False,
+        log_stderr=True,
+        log_on_process_error=True,
       )
 
       with open(output_hmm_path) as f:

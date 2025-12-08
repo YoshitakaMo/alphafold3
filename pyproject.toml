@@ -27,6 +27,7 @@ dependencies = [
     "tqdm",
     "typeguard==2.13.3",
     "zstandard",
+    "gemmi>=0.7.4",
 ]
 
 [tool.uv.sources]
@@ -34,6 +35,19 @@ triton = { git = "https://github.com/triton-lang/triton.git", tag = "v3.4.0" }
 
 [project.optional-dependencies]
 test = ["pytest>=6.0"]
+
+[tool.ruff]
+indent-width = 2
+
+[dependency-groups]
+dev = [
+    "mypy>=1.13.0",
+    "notebook>=7.2.2",
+    "pandas>=2.2.3",
+    "pytest>=8.3.3",
+    "pyyaml>=6.0.2",
+    "ruff>=0.8.2",
+]
 
 [tool.scikit-build]
 wheel.exclude = [

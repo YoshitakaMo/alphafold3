@@ -23,20 +23,20 @@ class Hmmsearch(object):
   """Python wrapper of the hmmsearch binary."""
 
   def __init__(
-      self,
-      *,
-      binary_path: str,
-      hmmbuild_binary_path: str,
-      database_path: str,
-      alphabet: str = 'amino',
-      filter_f1: float | None = None,
-      filter_f2: float | None = None,
-      filter_f3: float | None = None,
-      e_value: float | None = None,
-      inc_e: float | None = None,
-      dom_e: float | None = None,
-      incdom_e: float | None = None,
-      filter_max: bool = False,
+    self,
+    *,
+    binary_path: str,
+    hmmbuild_binary_path: str,
+    database_path: str,
+    alphabet: str = "amino",
+    filter_f1: float | None = None,
+    filter_f2: float | None = None,
+    filter_f3: float | None = None,
+    e_value: float | None = None,
+    inc_e: float | None = None,
+    dom_e: float | None = None,
+    incdom_e: float | None = None,
+    filter_max: bool = False,
   ):
     """Initializes the Python hmmsearch wrapper.
 
@@ -58,75 +58,79 @@ class Hmmsearch(object):
 
     Raises:
       RuntimeError: If hmmsearch binary not found within the path.
+    Run command:
+      /home/apps/hmmer/3.4/bin/hmmsearch --noali --cpu 8 --F1 0.1 --F2 0.1
+      --F3 0.1 -E 100 --incE 100 --domE 100 --incdomE 100 -A output.sto
+      query.hmm /home/database/pdb_seqres/pdb_seqres.txt
     """
     self._binary_path = binary_path
     self._hmmbuild_runner = hmmbuild.Hmmbuild(
-        alphabet=alphabet, binary_path=hmmbuild_binary_path
+      alphabet=alphabet, binary_path=hmmbuild_binary_path
     )
     self._database_path = database_path
     flags = []
     if filter_max:
-      flags.append('--max')
+      flags.append("--max")
     else:
       if filter_f1 is not None:
-        flags.extend(('--F1', filter_f1))
+        flags.extend(("--F1", filter_f1))
       if filter_f2 is not None:
-        flags.extend(('--F2', filter_f2))
+        flags.extend(("--F2", filter_f2))
       if filter_f3 is not None:
-        flags.extend(('--F3', filter_f3))
+        flags.extend(("--F3", filter_f3))
 
     if e_value is not None:
-      flags.extend(('-E', e_value))
+      flags.extend(("-E", e_value))
     if inc_e is not None:
-      flags.extend(('--incE', inc_e))
+      flags.extend(("--incE", inc_e))
     if dom_e is not None:
-      flags.extend(('--domE', dom_e))
+      flags.extend(("--domE", dom_e))
     if incdom_e is not None:
-      flags.extend(('--incdomE', incdom_e))
+      flags.extend(("--incdomE", incdom_e))
 
     self._flags = tuple(map(str, flags))
 
-    subprocess_utils.check_binary_exists(
-        path=self._binary_path, name='hmmsearch'
-    )
+    subprocess_utils.check_binary_exists(path=self._binary_path, name="hmmsearch")
 
     if not os.path.exists(self._database_path):
-      logging.error('Could not find hmmsearch database %s', database_path)
-      raise ValueError(f'Could not find hmmsearch database {database_path}')
+      logging.error("Could not find hmmsearch database %s", database_path)
+      raise ValueError(f"Could not find hmmsearch database {database_path}")
 
   def query_with_hmm(self, hmm: str) -> str:
     """Queries the database using hmmsearch using a given hmm."""
     with tempfile.TemporaryDirectory() as query_tmp_dir:
-      hmm_input_path = os.path.join(query_tmp_dir, 'query.hmm')
-      sto_out_path = os.path.join(query_tmp_dir, 'output.sto')
-      with open(hmm_input_path, 'w') as f:
+      hmm_input_path = os.path.join(query_tmp_dir, "query.hmm")
+      sto_out_path = os.path.join(query_tmp_dir, "output.sto")
+      with open(hmm_input_path, "w") as f:
         f.write(hmm)
 
       cmd = [
-          self._binary_path,
-          '--noali',  # Don't include the alignment in stdout.
-          *('--cpu', '8'),
+        self._binary_path,
+        "--noali",  # Don't include the alignment in stdout.
+        *("--cpu", "8"),
       ]
       # If adding flags, we have to do so before the output and input:
       if self._flags:
         cmd.extend(self._flags)
-      cmd.extend([
-          *('-A', sto_out_path),
+      cmd.extend(
+        [
+          *("-A", sto_out_path),
           hmm_input_path,
           self._database_path,
-      ])
+        ]
+      )
 
       subprocess_utils.run(
-          cmd=cmd,
-          cmd_name=f'Hmmsearch ({os.path.basename(self._database_path)})',
-          log_stdout=False,
-          log_stderr=True,
-          log_on_process_error=True,
+        cmd=cmd,
+        cmd_name=f"Hmmsearch ({os.path.basename(self._database_path)})",
+        log_stdout=False,
+        log_stderr=True,
+        log_on_process_error=True,
       )
 
       with open(sto_out_path) as f:
         a3m_out = parsers.convert_stockholm_to_a3m(
-            f, remove_first_row_gaps=False, linewidth=60
+          f, remove_first_row_gaps=False, linewidth=60
         )
 
     return a3m_out
@@ -139,11 +143,9 @@ class Hmmsearch(object):
     hmm = self._hmmbuild_runner.build_profile_from_a3m(a3m_in)
     return self.query_with_hmm(hmm)
 
-  def query_with_sto(
-      self, msa_sto: str, model_construction: str = 'fast'
-  ) -> str:
+  def query_with_sto(self, msa_sto: str, model_construction: str = "fast") -> str:
     """Queries the database using hmmsearch using a given stockholm msa."""
     hmm = self._hmmbuild_runner.build_profile_from_sto(
-        msa_sto, model_construction=model_construction
+      msa_sto, model_construction=model_construction
     )
     return self.query_with_hmm(hmm)
