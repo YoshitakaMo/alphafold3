@@ -156,7 +156,6 @@ def download_ciffile(pdb_id: str, directory: str | Path) -> None:
     )
 
 
-# %%
 directory = "/Users/YoshitakaM/Desktop/mmcif_files"
 cif_dir = structure_stores.StructureStore(directory)
 # pdb_id = "1A0I"
@@ -179,7 +178,6 @@ assert unresolved_res_ids1 == unresolved_res_ids2, (
 )
 
 
-# %%
 def check_results_diff():
   """Check that both implementations give the same results."""
   directory = "/Users/YoshitakaM/Desktop/mmcif_files"
@@ -232,8 +230,8 @@ def check_results_diff():
 check_results_diff()
 
 # %%
-a3mfile = "/Users/YoshitakaM/Desktop/orf5.a3m"
-outstofile = "/Users/YoshitakaM/Desktop/orf5.sto"
+a3mfile = "/Users/YoshitakaM/Desktop/2z9g.a3m"
+outstofile = "/Users/YoshitakaM/Desktop/2z9g.sto"
 mmcif_dir = "/Users/YoshitakaM/Desktop/mmcif_files"
 database_path = "/Users/YoshitakaM/Desktop/pdb_seqres.txt"
 
