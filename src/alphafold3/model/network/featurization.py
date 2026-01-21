@@ -12,12 +12,12 @@
 
 import functools
 
-from alphafold3.constants import residue_names
-from alphafold3.model import feat_batch
-from alphafold3.model import features
-from alphafold3.model.components import utils
 import jax
 import jax.numpy as jnp
+
+from alphafold3.constants import residue_names
+from alphafold3.model import feat_batch, features
+from alphafold3.model.components import utils
 
 
 def _grid_keys(key, shape):
@@ -35,9 +35,7 @@ def _grid_keys(key, shape):
   """
   if not shape:
     return key
-  new_keys = jax.vmap(functools.partial(jax.random.fold_in, key))(
-      jnp.arange(shape[0])
-  )
+  new_keys = jax.vmap(functools.partial(jax.random.fold_in, key))(jnp.arange(shape[0]))
   return jax.vmap(functools.partial(_grid_keys, shape=shape[1:]))(new_keys)
 
 
@@ -67,20 +65,16 @@ def _padding_consistent_rng(f):
   def inner(key, shape, **kwargs):
     keys = _grid_keys(key, shape)
     signature = (
-        '()->()'
-        if jax.dtypes.issubdtype(keys.dtype, jax.dtypes.prng_key)
-        else '(2)->()'
+      "()->()" if jax.dtypes.issubdtype(keys.dtype, jax.dtypes.prng_key) else "(2)->()"
     )
-    return jnp.vectorize(
-        functools.partial(f, shape=(), **kwargs), signature=signature
-    )(keys)
+    return jnp.vectorize(functools.partial(f, shape=(), **kwargs), signature=signature)(
+      keys
+    )
 
   return inner
 
 
-def gumbel_argsort_sample_idx(
-    key: jnp.ndarray, logits: jnp.ndarray
-) -> jnp.ndarray:
+def gumbel_argsort_sample_idx(key: jnp.ndarray, logits: jnp.ndarray) -> jnp.ndarray:
   """Samples with replacement from a distribution given by 'logits'.
 
   This uses Gumbel trick to implement the sampling an efficient manner. For a
@@ -102,27 +96,23 @@ def gumbel_argsort_sample_idx(
   # since stable sort's aren't supported by jax2tf
   axis = len(logits.shape) - 1
   iota = jax.lax.broadcasted_iota(jnp.int64, logits.shape, axis)
-  _, perm = jax.lax.sort_key_val(
-      logits + z, iota, dimension=-1, is_stable=False
-  )
+  _, perm = jax.lax.sort_key_val(logits + z, iota, dimension=-1, is_stable=False)
   return perm[::-1]
 
 
 def create_msa_feat(msa: features.MSA) -> jax.Array:
   """Create and concatenate MSA features."""
   msa_1hot = jax.nn.one_hot(
-      msa.rows, residue_names.POLYMER_TYPES_NUM_WITH_UNKNOWN_AND_GAP + 1
+    msa.rows, residue_names.POLYMER_TYPES_NUM_WITH_UNKNOWN_AND_GAP + 1
   )
   deletion_matrix = msa.deletion_matrix
   has_deletion = jnp.clip(deletion_matrix, 0.0, 1.0)[..., None]
-  deletion_value = (jnp.arctan(deletion_matrix / 3.0) * (2.0 / jnp.pi))[
-      ..., None
-  ]
+  deletion_value = (jnp.arctan(deletion_matrix / 3.0) * (2.0 / jnp.pi))[..., None]
 
   msa_feat = [
-      msa_1hot,
-      has_deletion,
-      deletion_value,
+    msa_1hot,
+    has_deletion,
+    deletion_value,
   ]
 
   return jnp.concatenate(msa_feat, axis=-1)
@@ -134,17 +124,17 @@ def truncate_msa_batch(msa: features.MSA, num_msa: int) -> features.MSA:
 
 
 def create_target_feat(
-    batch: feat_batch.Batch,
-    append_per_atom_features: bool,
+  batch: feat_batch.Batch,
+  append_per_atom_features: bool,
 ) -> jax.Array:
   """Make target feat."""
   token_features = batch.token_features
   target_features = []
   target_features.append(
-      jax.nn.one_hot(
-          token_features.aatype,
-          residue_names.POLYMER_TYPES_NUM_WITH_UNKNOWN_AND_GAP,
-      )
+    jax.nn.one_hot(
+      token_features.aatype,
+      residue_names.POLYMER_TYPES_NUM_WITH_UNKNOWN_AND_GAP,
+    )
   )
   target_features.append(batch.msa.profile)
   target_features.append(batch.msa.deletion_mean[..., None])
@@ -154,7 +144,7 @@ def create_target_feat(
     ref_mask = batch.ref_structure.mask
     element_feat = jax.nn.one_hot(batch.ref_structure.element, 128)
     element_feat = utils.mask_mean(
-        mask=ref_mask[..., None], value=element_feat, axis=-2, eps=1e-6
+      mask=ref_mask[..., None], value=element_feat, axis=-2, eps=1e-6
     )
     target_features.append(element_feat)
     pos_feat = batch.ref_structure.positions
@@ -166,9 +156,9 @@ def create_target_feat(
 
 
 def create_relative_encoding(
-    seq_features: features.TokenFeatures,
-    max_relative_idx: int,
-    max_relative_chain: int,
+  seq_features: features.TokenFeatures,
+  max_relative_idx: int,
+  max_relative_chain: int,
 ) -> jax.Array:
   """Add relative position encodings."""
   rel_feats = []
@@ -195,14 +185,12 @@ def create_relative_encoding(
 
   # Embed relative positions using a one-hot embedding of distance along chain
   offset = left_residue_index - right_residue_index
-  clipped_offset = jnp.clip(
-      offset + max_relative_idx, min=0, max=2 * max_relative_idx
-  )
+  clipped_offset = jnp.clip(offset + max_relative_idx, min=0, max=2 * max_relative_idx)
   asym_id_same = left_asym_id == right_asym_id
   final_offset = jnp.where(
-      asym_id_same,
-      clipped_offset,
-      (2 * max_relative_idx + 1) * jnp.ones_like(clipped_offset),
+    asym_id_same,
+    clipped_offset,
+    (2 * max_relative_idx + 1) * jnp.ones_like(clipped_offset),
   )
   rel_pos = jax.nn.one_hot(final_offset, 2 * max_relative_idx + 2)
   rel_feats.append(rel_pos)
@@ -210,15 +198,15 @@ def create_relative_encoding(
   # Embed relative token index as a one-hot embedding of distance along residue
   token_offset = left_token_index - right_token_index
   clipped_token_offset = jnp.clip(
-      token_offset + max_relative_idx, min=0, max=2 * max_relative_idx
+    token_offset + max_relative_idx, min=0, max=2 * max_relative_idx
   )
   residue_same = (left_asym_id == right_asym_id) & (
-      left_residue_index == right_residue_index
+    left_residue_index == right_residue_index
   )
   final_token_offset = jnp.where(
-      residue_same,
-      clipped_token_offset,
-      (2 * max_relative_idx + 1) * jnp.ones_like(clipped_token_offset),
+    residue_same,
+    clipped_token_offset,
+    (2 * max_relative_idx + 1) * jnp.ones_like(clipped_token_offset),
   )
   rel_token = jax.nn.one_hot(final_token_offset, 2 * max_relative_idx + 2)
   rel_feats.append(rel_token)
@@ -232,14 +220,12 @@ def create_relative_encoding(
 
   max_rel_chain = max_relative_chain
 
-  clipped_rel_chain = jnp.clip(
-      rel_sym_id + max_rel_chain, min=0, max=2 * max_rel_chain
-  )
+  clipped_rel_chain = jnp.clip(rel_sym_id + max_rel_chain, min=0, max=2 * max_rel_chain)
 
   final_rel_chain = jnp.where(
-      entity_id_same,
-      clipped_rel_chain,
-      (2 * max_rel_chain + 1) * jnp.ones_like(clipped_rel_chain),
+    entity_id_same,
+    clipped_rel_chain,
+    (2 * max_rel_chain + 1) * jnp.ones_like(clipped_rel_chain),
   )
   rel_chain = jax.nn.one_hot(final_rel_chain, 2 * max_relative_chain + 2)
 
@@ -248,9 +234,7 @@ def create_relative_encoding(
   return jnp.concatenate(rel_feats, axis=-1)
 
 
-def shuffle_msa(
-    key: jax.Array, msa: features.MSA
-) -> tuple[features.MSA, jax.Array]:
+def shuffle_msa(key: jax.Array, msa: features.MSA) -> tuple[features.MSA, jax.Array]:
   """Shuffle MSA randomly, return batch with shuffled MSA.
 
   Args:

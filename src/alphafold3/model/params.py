@@ -12,7 +12,6 @@
 
 import bisect
 import collections
-from collections.abc import Iterator
 import contextlib
 import io
 import os
@@ -20,6 +19,7 @@ import pathlib
 import re
 import struct
 import sys
+from collections.abc import Iterator
 from typing import IO
 
 import haiku as hk
@@ -34,45 +34,45 @@ class RecordError(Exception):
 
 def encode_record(scope: str, name: str, arr: np.ndarray) -> bytes:
   """Encodes a single haiku param as bytes, preserving non-numpy dtypes."""
-  scope = scope.encode('utf-8')
-  name = name.encode('utf-8')
+  scope = scope.encode("utf-8")
+  name = name.encode("utf-8")
   shape = arr.shape
-  dtype = str(arr.dtype).encode('utf-8')
+  dtype = str(arr.dtype).encode("utf-8")
   arr = np.ascontiguousarray(arr)
-  if sys.byteorder == 'big':
+  if sys.byteorder == "big":
     arr = arr.byteswap()
-  arr_buffer = arr.tobytes('C')
+  arr_buffer = arr.tobytes("C")
   header = struct.pack(
-      '<5i', len(scope), len(name), len(dtype), len(shape), len(arr_buffer)
+    "<5i", len(scope), len(name), len(dtype), len(shape), len(arr_buffer)
   )
-  return header + b''.join(
-      (scope, name, dtype, struct.pack(f'{len(shape)}i', *shape), arr_buffer)
+  return header + b"".join(
+    (scope, name, dtype, struct.pack(f"{len(shape)}i", *shape), arr_buffer)
   )
 
 
 def _read_record(stream: IO[bytes]) -> tuple[str, str, np.ndarray] | None:
   """Reads a record encoded by `_encode_record` from a byte stream."""
-  header_size = struct.calcsize('<5i')
+  header_size = struct.calcsize("<5i")
   header = stream.read(header_size)
   if not header:
     return None
   if len(header) < header_size:
-    raise RecordError(f'Incomplete header: {len(header)=} < {header_size=}')
+    raise RecordError(f"Incomplete header: {len(header)=} < {header_size=}")
   (scope_len, name_len, dtype_len, shape_len, arr_buffer_len) = struct.unpack(
-      '<5i', header
+    "<5i", header
   )
-  fmt = f'<{scope_len}s{name_len}s{dtype_len}s{shape_len}i'
+  fmt = f"<{scope_len}s{name_len}s{dtype_len}s{shape_len}i"
   payload_size = struct.calcsize(fmt) + arr_buffer_len
   payload = stream.read(payload_size)
   if len(payload) < payload_size:
-    raise RecordError(f'Incomplete payload: {len(payload)=} < {payload_size=}')
+    raise RecordError(f"Incomplete payload: {len(payload)=} < {payload_size=}")
   scope, name, dtype, *shape = struct.unpack_from(fmt, payload)
-  scope = scope.decode('utf-8')
-  name = name.decode('utf-8')
-  dtype = dtype.decode('utf-8')
+  scope = scope.decode("utf-8")
+  name = name.decode("utf-8")
+  dtype = dtype.decode("utf-8")
   arr = np.frombuffer(payload[-arr_buffer_len:], dtype=dtype)
   arr = np.reshape(arr, shape)
-  if sys.byteorder == 'big':
+  if sys.byteorder == "big":
     arr = arr.byteswap()
   return scope, name, arr
 
@@ -89,9 +89,7 @@ class _MultiFileIO(io.RawIOBase):
   def __init__(self, files: list[pathlib.Path]):
     self._files = files
     self._stack = contextlib.ExitStack()
-    self._handles = [
-        self._stack.enter_context(file.open('rb')) for file in files
-    ]
+    self._handles = [self._stack.enter_context(file.open("rb")) for file in files]
     self._sizes = []
     for handle in self._handles:
       handle.seek(0, os.SEEK_END)
@@ -131,7 +129,7 @@ class _MultiFileIO(io.RawIOBase):
       case os.SEEK_END:
         pos = self._length - pos
       case _:
-        raise ValueError(f'Invalid whence: {whence}')
+        raise ValueError(f"Invalid whence: {whence}")
     self._abspos = pos
     self._relpos = self._abs_to_rel(pos)
 
@@ -160,30 +158,30 @@ def open_for_reading(model_files: list[pathlib.Path], is_compressed: bool):
 
 
 def _match_model(
-    paths: list[pathlib.Path], pattern: re.Pattern[str]
+  paths: list[pathlib.Path], pattern: re.Pattern[str]
 ) -> dict[str, list[pathlib.Path]]:
   """Match files in a directory with a pattern, and group by model name."""
   models = collections.defaultdict(list)
   for path in paths:
     match = pattern.fullmatch(path.name)
     if match:
-      models[match.group('model_name')].append(path)
+      models[match.group("model_name")].append(path)
   return {k: sorted(v) for k, v in models.items()}
 
 
 def select_model_files(
-    model_dir: pathlib.Path, model_name: str | None = None
+  model_dir: pathlib.Path, model_name: str | None = None
 ) -> tuple[list[pathlib.Path], bool]:
   """Select the model files from a model directory."""
   files = [file for file in model_dir.iterdir() if file.is_file()]
 
   for pattern, is_compressed in (
-      (r'(?P<model_name>.*)\.[0-9]+\.bin\.zst$', True),
-      (r'(?P<model_name>.*)\.bin\.zst\.[0-9]+$', True),
-      (r'(?P<model_name>.*)\.[0-9]+\.bin$', False),
-      (r'(?P<model_name>.*)\.bin]\.[0-9]+$', False),
-      (r'(?P<model_name>.*)\.bin\.zst$', True),
-      (r'(?P<model_name>.*)\.bin$', False),
+    (r"(?P<model_name>.*)\.[0-9]+\.bin\.zst$", True),
+    (r"(?P<model_name>.*)\.bin\.zst\.[0-9]+$", True),
+    (r"(?P<model_name>.*)\.[0-9]+\.bin$", False),
+    (r"(?P<model_name>.*)\.bin]\.[0-9]+$", False),
+    (r"(?P<model_name>.*)\.bin\.zst$", True),
+    (r"(?P<model_name>.*)\.bin$", False),
   ):
     models = _match_model(files, re.compile(pattern))
     if model_name is not None:
@@ -192,10 +190,10 @@ def select_model_files(
     else:
       if models:
         if len(models) > 1:
-          raise RuntimeError(f'Multiple models matched in {model_dir}')
+          raise RuntimeError(f"Multiple models matched in {model_dir}")
         _, model_files = models.popitem()
         return model_files, is_compressed
-  raise FileNotFoundError(f'No models matched in {model_dir}')
+  raise FileNotFoundError(f"No models matched in {model_dir}")
 
 
 def get_model_haiku_params(model_dir: pathlib.Path) -> hk.Params:

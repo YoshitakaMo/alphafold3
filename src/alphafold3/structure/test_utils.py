@@ -12,11 +12,12 @@
 
 import dataclasses
 
-from absl.testing import parameterized
-from alphafold3 import structure
-from alphafold3.common.testing import data
 import numpy as np
 import tree
+from absl.testing import parameterized
+
+from alphafold3 import structure
+from alphafold3.common.testing import data
 
 
 class StructureTestCase(parameterized.TestCase):
@@ -53,10 +54,10 @@ class StructureTestCase(parameterized.TestCase):
     self.assertDictEqual(data1.to_mmcif_dict(), data2.to_mmcif_dict())
 
   def assertChemicalComponentsDataEqual(  # pylint: disable=invalid-name
-      self,
-      data1,
-      data2,
-      allow_chem_comp_data_extension,
+    self,
+    data1,
+    data2,
+    allow_chem_comp_data_extension,
   ):
     """Checks whether two ChemicalComponentData objects are considered equal."""
     if data1 is None or data2 is None:
@@ -64,7 +65,7 @@ class StructureTestCase(parameterized.TestCase):
       self.assertIsNone(data2)
       return
     if (not allow_chem_comp_data_extension) or (
-        data1.chem_comp.keys() ^ data2.chem_comp.keys()
+      data1.chem_comp.keys() ^ data2.chem_comp.keys()
     ):
       self.assertDictEqual(data1.chem_comp, data2.chem_comp)
     else:
@@ -76,13 +77,12 @@ class StructureTestCase(parameterized.TestCase):
           mismatching_values.append((component_id, expected, found))
 
       if mismatching_values:
-        mismatch_err_msgs = '\n'.join(
-            f'{component_id}: {expected} or its extension expected,'
-            f' but {found} found.'
-            for component_id, expected, found in mismatching_values
+        mismatch_err_msgs = "\n".join(
+          f"{component_id}: {expected} or its extension expected, but {found} found."
+          for component_id, expected, found in mismatching_values
         )
         self.fail(
-            f'Mismatching values for `_chem_comp` table: {mismatch_err_msgs}',
+          f"Mismatching values for `_chem_comp` table: {mismatch_err_msgs}",
         )
 
   def assertBondsEqual(self, bonds1, bonds2, atom_key1, atom_key2):  # pylint: disable=invalid-name
@@ -90,8 +90,8 @@ class StructureTestCase(parameterized.TestCase):
     # An empty bonds table is functionally equivalent to an empty bonds table.
     # NB: this can only ever be None in structure v1.
     if bonds1 is None or not bonds1.size or bonds2 is None or not bonds2.size:
-      self.assertTrue(bonds1 is None or not bonds1.size, msg=f'{bonds1=}')
-      self.assertTrue(bonds2 is None or not bonds2.size, msg=f'{bonds2=}')
+      self.assertTrue(bonds1 is None or not bonds1.size, msg=f"{bonds1=}")
+      self.assertTrue(bonds2 is None or not bonds2.size, msg=f"{bonds2=}")
       return
 
     ptnr1_indices1, ptnr2_indices1 = bonds1.get_atom_indices(atom_key1)
@@ -102,13 +102,13 @@ class StructureTestCase(parameterized.TestCase):
     np.testing.assert_array_equal(bonds1.role, bonds2.role)
 
   def assertStructuresEqual(  # pylint: disable=invalid-name
-      self,
-      struc1,
-      struc2,
-      *,
-      ignore_fields=None,
-      allow_chem_comp_data_extension=False,
-      atol=0,
+    self,
+    struc1,
+    struc2,
+    *,
+    ignore_fields=None,
+    allow_chem_comp_data_extension=False,
+    atol=0,
   ):
     """Checks whether two Structure objects could be considered equal.
 
@@ -125,19 +125,19 @@ class StructureTestCase(parameterized.TestCase):
     for field in sorted(structure.GLOBAL_FIELDS):
       if ignore_fields and field in ignore_fields:
         continue
-      if field == 'author_naming_scheme':
+      if field == "author_naming_scheme":
         self.assertAuthorNamingSchemeEqual(struc1[field], struc2[field])
-      elif field == 'all_residues':
+      elif field == "all_residues":
         self.assertAllResiduesEqual(struc1[field], struc2[field])
-      elif field == 'bioassembly_data':
+      elif field == "bioassembly_data":
         self.assertBioassemblyDataEqual(struc1[field], struc2[field])
-      elif field == 'chemical_components_data':
+      elif field == "chemical_components_data":
         self.assertChemicalComponentsDataEqual(
-            struc1[field], struc2[field], allow_chem_comp_data_extension
+          struc1[field], struc2[field], allow_chem_comp_data_extension
         )
-      elif field == 'bonds':
+      elif field == "bonds":
         self.assertBondsEqual(
-            struc1.bonds, struc2.bonds, struc1.atom_key, struc2.atom_key
+          struc1.bonds, struc2.bonds, struc1.atom_key, struc2.atom_key
         )
       else:
         self.assertEqual(struc1[field], struc2[field], msg=field)
@@ -151,7 +151,7 @@ class StructureTestCase(parameterized.TestCase):
     self.assertEqual(struc1.num_atoms, num_atoms)
 
     for field in sorted(structure.ARRAY_FIELDS):
-      if field == 'atom_key':
+      if field == "atom_key":
         # atom_key has no external meaning, so it doesn't matter whether it
         # differs between two structures.
         continue
@@ -161,9 +161,7 @@ class StructureTestCase(parameterized.TestCase):
 
       if np.issubdtype(struc1[field].dtype, np.inexact):
         np.testing.assert_allclose(
-            struc1[field], struc2[field], err_msg=field, atol=atol
+          struc1[field], struc2[field], err_msg=field, atol=atol
         )
       else:
-        np.testing.assert_array_equal(
-            struc1[field], struc2[field], err_msg=field
-        )
+        np.testing.assert_array_equal(struc1[field], struc2[field], err_msg=field)

@@ -9,39 +9,40 @@
 # https://github.com/google-deepmind/alphafold3/blob/main/WEIGHTS_TERMS_OF_USE.md
 
 """Functions for extracting and processing confidences from model outputs."""
+
 import warnings
 
-from absl import logging
-from alphafold3 import structure
-from alphafold3.constants import residue_names
-from alphafold3.cpp import mkdssp
 import jax.numpy as jnp
 import numpy as np
+from absl import logging
+from alphafold3.cpp import mkdssp
 from scipy import spatial
 
+from alphafold3 import structure
+from alphafold3.constants import residue_names
 
 # From Sander & Rost 1994 https://doi.org/10.1002/prot.340200303
 MAX_ACCESSIBLE_SURFACE_AREA = {
-    'ALA': 106.0,
-    'ARG': 248.0,
-    'ASN': 157.0,
-    'ASP': 163.0,
-    'CYS': 135.0,
-    'GLN': 198.0,
-    'GLU': 194.0,
-    'GLY': 84.0,
-    'HIS': 184.0,
-    'ILE': 169.0,
-    'LEU': 164.0,
-    'LYS': 205.0,
-    'MET': 188.0,
-    'PHE': 197.0,
-    'PRO': 136.0,
-    'SER': 130.0,
-    'THR': 142.0,
-    'TRP': 227.0,
-    'TYR': 222.0,
-    'VAL': 142.0,
+  "ALA": 106.0,
+  "ARG": 248.0,
+  "ASN": 157.0,
+  "ASP": 163.0,
+  "CYS": 135.0,
+  "GLN": 198.0,
+  "GLU": 194.0,
+  "GLY": 84.0,
+  "HIS": 184.0,
+  "ILE": 169.0,
+  "LEU": 164.0,
+  "LYS": 205.0,
+  "MET": 188.0,
+  "PHE": 197.0,
+  "PRO": 136.0,
+  "SER": 130.0,
+  "THR": 142.0,
+  "TRP": 227.0,
+  "TYR": 222.0,
+  "VAL": 142.0,
 }
 
 # Weights for ranking confidence.
@@ -69,26 +70,26 @@ def windowed_solvent_accessible_area(cif: str, window: int = 25) -> np.ndarray:
   for row in result.splitlines():
     if parse_row:
       aa = row[13:14]
-      if aa == '!':
+      if aa == "!":
         continue
-      aa3 = residue_names.PROTEIN_COMMON_ONE_TO_THREE.get(aa, 'ALA')
+      aa3 = residue_names.PROTEIN_COMMON_ONE_TO_THREE.get(aa, "ALA")
       max_acc = MAX_ACCESSIBLE_SURFACE_AREA[aa3]
       acc = int(row[34:38])
       norm_acc = acc / max_acc
       if norm_acc > 1.0:
         norm_acc = 1.0
       rasa.append(norm_acc)
-    if row.startswith('  #  RESIDUE'):
+    if row.startswith("  #  RESIDUE"):
       parse_row = True
 
   half_w = (window - 1) // 2
-  pad_rasa = np.pad(rasa, (half_w, half_w), 'reflect')
-  rasa = np.convolve(pad_rasa, np.ones(window), 'valid') / window
+  pad_rasa = np.pad(rasa, (half_w, half_w), "reflect")
+  rasa = np.convolve(pad_rasa, np.ones(window), "valid") / window
   return rasa
 
 
 def fraction_disordered(
-    struc: structure.Structure, rasa_disorder_cutoff: float = 0.581
+  struc: structure.Structure, rasa_disorder_cutoff: float = 0.581
 ) -> float:
   """Compute fraction of protein residues that are disordered.
 
@@ -113,15 +114,13 @@ def fraction_disordered(
       continue
     chain_struc = struc.filter(chain_id=chain_id)
     # Rename the chain to 'A' as MKDSSP supports only single letter chain IDs.
-    chain_struc = chain_struc.rename_chain_ids(new_id_by_old_id={chain_id: 'A'})
+    chain_struc = chain_struc.rename_chain_ids(new_id_by_old_id={chain_id: "A"})
     try:
-      rasa_per_residue = windowed_solvent_accessible_area(
-          chain_struc.to_mmcif()
-      )
+      rasa_per_residue = windowed_solvent_accessible_area(chain_struc.to_mmcif())
       seq_rasa[chain_seq] = rasa_per_residue
       rasa.extend(rasa_per_residue)
     except (ValueError, RuntimeError) as e:
-      logging.warning('%s: rasa calculation failed: %s', struc.name, e)
+      logging.warning("%s: rasa calculation failed: %s", struc.name, e)
 
   if not rasa:
     return 0.0
@@ -129,10 +128,10 @@ def fraction_disordered(
 
 
 def has_clash(
-    struc: structure.Structure,
-    cutoff_radius: float = 1.1,
-    min_clashes_for_overlap: int = 100,
-    min_fraction_for_overlap: float = 0.5,
+  struc: structure.Structure,
+  cutoff_radius: float = 1.1,
+  min_clashes_for_overlap: int = 100,
+  min_fraction_for_overlap: float = 0.5,
 ) -> bool:
   """Determine whether the structure has at least one clashing chain.
 
@@ -156,14 +155,12 @@ def has_clash(
     return False
   coords = struc.coords
   coord_kdtree = spatial.cKDTree(coords)
-  clashes_per_atom = coord_kdtree.query_ball_point(
-      coords, p=2.0, r=cutoff_radius
-  )
+  clashes_per_atom = coord_kdtree.query_ball_point(coords, p=2.0, r=cutoff_radius)
   per_atom_has_clash = np.zeros(len(coords), dtype=np.int32)
   for atom_idx, clashing_indices in enumerate(clashes_per_atom):
     for clashing_idx in clashing_indices:
       if np.abs(struc.res_id[atom_idx] - struc.res_id[clashing_idx]) > 1 or (
-          struc.chain_id[atom_idx] != struc.chain_id[clashing_idx]
+        struc.chain_id[atom_idx] != struc.chain_id[clashing_idx]
       ):
         per_atom_has_clash[atom_idx] = True
         break
@@ -174,16 +171,13 @@ def has_clash(
       continue
     num_clashes = np.sum(per_atom_has_clash * mask)
     frac_clashes = num_clashes / num_atoms
-    if (
-        num_clashes > min_clashes_for_overlap
-        or frac_clashes > min_fraction_for_overlap
-    ):
+    if num_clashes > min_clashes_for_overlap or frac_clashes > min_fraction_for_overlap:
       return True
   return False
 
 
 def get_ranking_score(
-    ptm: float, iptm: float, fraction_disordered_: float, has_clash_: bool
+  ptm: float, iptm: float, fraction_disordered_: float, has_clash_: bool
 ) -> float:
   # ipTM is NaN for single chain structures. Use pTM for such cases.
   if np.isnan(iptm):
@@ -191,14 +185,14 @@ def get_ranking_score(
   else:
     ptm_iptm_average = _IPTM_WEIGHT * iptm + (1.0 - _IPTM_WEIGHT) * ptm
   return (
-      ptm_iptm_average
-      + _FRACTION_DISORDERED_WEIGHT * fraction_disordered_
-      - _CLASH_PENALIZATION_WEIGHT * has_clash_
+    ptm_iptm_average
+    + _FRACTION_DISORDERED_WEIGHT * fraction_disordered_
+    - _CLASH_PENALIZATION_WEIGHT * has_clash_
   )
 
 
 def rank_metric(
-    full_pde: jnp.ndarray | np.ndarray, contact_probs: jnp.ndarray | np.ndarray
+  full_pde: jnp.ndarray | np.ndarray, contact_probs: jnp.ndarray | np.ndarray
 ) -> jnp.ndarray | np.ndarray:
   """Compute the metric that will be used to rank predictions, higher is better.
 
@@ -212,18 +206,18 @@ def rank_metric(
     A scalar that can be used to rank (higher is better).
   """
   if not isinstance(full_pde, type(contact_probs)):
-    raise ValueError('full_pde and contact_probs must be of the same type.')
+    raise ValueError("full_pde and contact_probs must be of the same type.")
 
   if isinstance(full_pde, np.ndarray):
     sum_fn = np.sum
   elif isinstance(full_pde, jnp.ndarray):
     sum_fn = jnp.sum
   else:
-    raise ValueError('full_pde must be a numpy array or a jax array.')
+    raise ValueError("full_pde must be a numpy array or a jax array.")
   # It was found that taking the contact_map weighted average was better than
   # just the predicted distance error on its own.
   return -sum_fn(full_pde * contact_probs[None, :, :], axis=(-2, -1)) / (
-      sum_fn(contact_probs) + 1e-6
+    sum_fn(contact_probs) + 1e-6
   )
 
 
@@ -232,10 +226,10 @@ def weighted_mean(mask, value, axis):
 
 
 def pde_single(
-    num_tokens: int,
-    asym_ids: np.ndarray,
-    full_pde: np.ndarray,
-    contact_probs: np.ndarray,
+  num_tokens: int,
+  asym_ids: np.ndarray,
+  full_pde: np.ndarray,
+  contact_probs: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
   """Compute 1D PDE summaries.
 
@@ -288,7 +282,7 @@ def pde_single(
 
 
 def chain_pair_pde(
-    num_tokens: int, asym_ids: np.ndarray, full_pde: np.ndarray
+  num_tokens: int, asym_ids: np.ndarray, full_pde: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray]:
   """Compute predicted distance errors for all pairs of chains.
 
@@ -321,9 +315,7 @@ def chain_pair_pde(
   return chain_pair_pred_err_mean, chain_pair_pred_err_min
 
 
-def weighted_nanmean(
-    value: np.ndarray, mask: np.ndarray, axis: int
-) -> np.ndarray:
+def weighted_nanmean(value: np.ndarray, mask: np.ndarray, axis: int) -> np.ndarray:
   """Nan-mean with weighting -- empty slices return NaN."""
   assert mask.shape == value.shape
   assert not np.isnan(mask).all()
@@ -334,22 +326,22 @@ def weighted_nanmean(
   mask_with_nan[nan_idxs] = np.nan
   with warnings.catch_warnings():
     # Mean of empty slice is ok and should return a NaN.
-    warnings.filterwarnings(action='ignore', message='Mean of empty slice')
+    warnings.filterwarnings(action="ignore", message="Mean of empty slice")
     warnings.filterwarnings(
-        action='ignore', message='invalid value encountered in (scalar )?divide'
+      action="ignore", message="invalid value encountered in (scalar )?divide"
     )
     return np.nanmean(value * mask_with_nan, axis=axis) / np.nanmean(
-        mask_with_nan, axis=axis
+      mask_with_nan, axis=axis
     )
 
 
 def chain_pair_pae(
-    *,
-    num_tokens: int,
-    asym_ids: np.ndarray,
-    full_pae: np.ndarray,
-    mask: np.ndarray | None = None,
-    contact_probs: np.ndarray | None = None,
+  *,
+  num_tokens: int,
+  asym_ids: np.ndarray,
+  full_pae: np.ndarray,
+  mask: np.ndarray | None = None,
+  contact_probs: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
   """Compute predicted errors for all pairs of chains.
 
@@ -400,23 +392,23 @@ def chain_pair_pae(
         chain_pair_pred_err_min[:, idx1, idx2] = np.nan
       else:
         chain_pair_pred_err_min[:, idx1, idx2] = np.min(
-            flat_subsubset[:, flat_mask_idxs], axis=1
+          flat_subsubset[:, flat_mask_idxs], axis=1
         )
         chain_pair_pred_err_mean[:, idx1, idx2] = weighted_mean(
-            mask=flat_contact_probs[flat_mask_idxs],
-            value=flat_subsubset[:, flat_mask_idxs],
-            axis=-1,
+          mask=flat_contact_probs[flat_mask_idxs],
+          value=flat_subsubset[:, flat_mask_idxs],
+          axis=-1,
         )
   return chain_pair_pred_err_mean, chain_pair_pred_err_min, unique_asym_ids
 
 
 def reduce_chain_pair(
-    *,
-    chain_pair_met: np.ndarray,
-    num_chain_tokens: np.ndarray,
-    agg_over_col: bool,
-    agg_type: str,
-    weight_method: str,
+  *,
+  chain_pair_met: np.ndarray,
+  num_chain_tokens: np.ndarray,
+  agg_over_col: bool,
+  agg_type: str,
+  weight_method: str,
 ) -> tuple[np.ndarray, np.ndarray]:
   """Compute 1D summaries from a chain-pair summary.
 
@@ -444,86 +436,84 @@ def reduce_chain_pair(
 
   ichain = chain_pair_met.diagonal(axis1=-2, axis2=-1)
 
-  if weight_method == 'per_chain':
+  if weight_method == "per_chain":
     chain_weight = np.ones((num_chains,), dtype=float)
-  elif weight_method == 'per_token':
+  elif weight_method == "per_token":
     chain_weight = num_chain_tokens
   else:
-    raise ValueError(f'Unknown weight method: {weight_method}')
+    raise ValueError(f"Unknown weight method: {weight_method}")
 
   if agg_over_col:
     agg_axis = -1
   else:
     agg_axis = -2
 
-  if agg_type == 'mean':
+  if agg_type == "mean":
     weight = np.ones((num_samples, num_chains, num_chains), dtype=float)
     weight -= np.eye(num_chains, dtype=float)
     weight *= chain_weight[None] * chain_weight[:, None]
     xchain = weighted_nanmean(chain_pair_met, mask=weight, axis=agg_axis)
-  elif agg_type == 'min':
+  elif agg_type == "min":
     is_self = np.eye(num_chains)
     with warnings.catch_warnings():
       # Min over empty slice is ok and should return a NaN.
-      warnings.filterwarnings('ignore', message='All-NaN slice encountered')
+      warnings.filterwarnings("ignore", message="All-NaN slice encountered")
       xchain = np.nanmin(chain_pair_met + 1e8 * is_self, axis=agg_axis)
   else:
-    raise ValueError(f'Unknown aggregation method: {agg_type}')
+    raise ValueError(f"Unknown aggregation method: {agg_type}")
 
   return ichain, xchain
 
 
 def pae_metrics(
-    num_tokens: int,
-    asym_ids: np.ndarray,
-    full_pae: np.ndarray,
-    mask: np.ndarray,
-    contact_probs: np.ndarray,
-    tm_adjusted_pae: np.ndarray,
+  num_tokens: int,
+  asym_ids: np.ndarray,
+  full_pae: np.ndarray,
+  mask: np.ndarray,
+  contact_probs: np.ndarray,
+  tm_adjusted_pae: np.ndarray,
 ):
   """PAE aggregate metrics."""
   assert mask.shape == full_pae.shape[1:]
   assert contact_probs.shape == full_pae.shape[1:]
 
   chain_pair_contact_weighted, _, unique_asym_ids = chain_pair_pae(
-      num_tokens=num_tokens,
-      asym_ids=asym_ids,
-      full_pae=full_pae,
-      mask=mask,
-      contact_probs=contact_probs,
+    num_tokens=num_tokens,
+    asym_ids=asym_ids,
+    full_pae=full_pae,
+    mask=mask,
+    contact_probs=contact_probs,
   )
 
   ret = {}
-  ret['chain_pair_pae_mean'], ret['chain_pair_pae_min'], _ = chain_pair_pae(
-      num_tokens=num_tokens,
-      asym_ids=asym_ids,
-      full_pae=full_pae,
-      mask=mask,
+  ret["chain_pair_pae_mean"], ret["chain_pair_pae_min"], _ = chain_pair_pae(
+    num_tokens=num_tokens,
+    asym_ids=asym_ids,
+    full_pae=full_pae,
+    mask=mask,
   )
   chain_pair_iptm = np.stack(
-      [
-          chain_pairwise_predicted_tm_scores(
-              tm_adjusted_pae=sample_tm_adjusted_pae[:num_tokens],
-              asym_id=asym_ids[:num_tokens],
-              pair_mask=mask[:num_tokens, :num_tokens],
-          )
-          for sample_tm_adjusted_pae in tm_adjusted_pae
-      ],
-      axis=0,
+    [
+      chain_pairwise_predicted_tm_scores(
+        tm_adjusted_pae=sample_tm_adjusted_pae[:num_tokens],
+        asym_id=asym_ids[:num_tokens],
+        pair_mask=mask[:num_tokens, :num_tokens],
+      )
+      for sample_tm_adjusted_pae in tm_adjusted_pae
+    ],
+    axis=0,
   )
 
-  num_chain_tokens = np.array(
-      [sum(asym_ids == asym_id) for asym_id in unique_asym_ids]
-  )
+  num_chain_tokens = np.array([sum(asym_ids == asym_id) for asym_id in unique_asym_ids])
 
   def reduce_chain_pair_fn(chain_pair: np.ndarray):
     def inner(agg_over_col):
       ichain_pae, xchain_pae = reduce_chain_pair(
-          num_chain_tokens=num_chain_tokens,
-          chain_pair_met=chain_pair,
-          agg_over_col=agg_over_col,
-          agg_type='mean',
-          weight_method='per_chain',
+        num_chain_tokens=num_chain_tokens,
+        chain_pair_met=chain_pair,
+        agg_over_col=agg_over_col,
+        agg_type="mean",
+        weight_method="per_chain",
       )
       return ichain_pae, xchain_pae
 
@@ -531,22 +521,22 @@ def pae_metrics(
     _, xchain_col_agg = inner(True)
     with warnings.catch_warnings():
       # Mean of empty slice is ok and should return a NaN.
-      warnings.filterwarnings(action='ignore', message='Mean of empty slice')
-      xchain = np.nanmean(
-          np.stack([xchain_row_agg, xchain_col_agg], axis=0), axis=0
-      )
+      warnings.filterwarnings(action="ignore", message="Mean of empty slice")
+      xchain = np.nanmean(np.stack([xchain_row_agg, xchain_col_agg], axis=0), axis=0)
     return ichain, xchain
 
   pae_ichain, pae_xchain = reduce_chain_pair_fn(chain_pair_contact_weighted)
   iptm_ichain, iptm_xchain = reduce_chain_pair_fn(chain_pair_iptm)
 
-  ret.update({
-      'chain_pair_iptm': chain_pair_iptm,
-      'iptm_ichain': iptm_ichain,
-      'iptm_xchain': iptm_xchain,
-      'pae_ichain': pae_ichain,
-      'pae_xchain': pae_xchain,
-  })
+  ret.update(
+    {
+      "chain_pair_iptm": chain_pair_iptm,
+      "iptm_ichain": iptm_ichain,
+      "iptm_xchain": iptm_xchain,
+      "pae_ichain": pae_ichain,
+      "pae_xchain": pae_xchain,
+    }
+  )
 
   return ret
 
@@ -560,18 +550,16 @@ def get_iptm_xchain(chain_pair_iptm: np.ndarray) -> np.ndarray:
   xchain_col_agg = weighted_nanmean(chain_pair_iptm, mask=weight, axis=-1)
   with warnings.catch_warnings():
     # Mean of empty slice is ok and should return a NaN.
-    warnings.filterwarnings(action='ignore', message='Mean of empty slice')
-    iptm_xchain = np.nanmean(
-        np.stack([xchain_row_agg, xchain_col_agg], axis=0), axis=0
-    )
+    warnings.filterwarnings(action="ignore", message="Mean of empty slice")
+    iptm_xchain = np.nanmean(np.stack([xchain_row_agg, xchain_col_agg], axis=0), axis=0)
   return iptm_xchain
 
 
 def predicted_tm_score(
-    tm_adjusted_pae: np.ndarray,
-    pair_mask: np.ndarray,
-    asym_id: np.ndarray,
-    interface: bool = False,
+  tm_adjusted_pae: np.ndarray,
+  pair_mask: np.ndarray,
+  asym_id: np.ndarray,
+  interface: bool = False,
 ) -> float:
   """Computes predicted TM alignment or predicted interface TM alignment score.
 
@@ -591,20 +579,20 @@ def predicted_tm_score(
   num_tokens, _ = tm_adjusted_pae.shape
   if tm_adjusted_pae.shape != (num_tokens, num_tokens):
     raise ValueError(
-        f'Bad tm_adjusted_pae shape, expected ({num_tokens, num_tokens}), got '
-        f'{tm_adjusted_pae.shape}.'
+      f"Bad tm_adjusted_pae shape, expected ({num_tokens, num_tokens}), got "
+      f"{tm_adjusted_pae.shape}."
     )
 
   if pair_mask.shape != (num_tokens, num_tokens):
     raise ValueError(
-        f'Bad pair_mask shape, expected ({num_tokens, num_tokens}), got '
-        f'{pair_mask.shape}.'
+      f"Bad pair_mask shape, expected ({num_tokens, num_tokens}), got "
+      f"{pair_mask.shape}."
     )
   if pair_mask.dtype != bool:
-    raise TypeError(f'Bad pair mask type, expected bool, got {pair_mask.dtype}')
+    raise TypeError(f"Bad pair mask type, expected bool, got {pair_mask.dtype}")
   if asym_id.shape[0] != num_tokens:
     raise ValueError(
-        f'Bad asym_id shape, expected ({num_tokens},), got {asym_id.shape}.'
+      f"Bad asym_id shape, expected ({num_tokens},), got {asym_id.shape}."
     )
 
   # Create pair mask.
@@ -615,17 +603,15 @@ def predicted_tm_score(
   if pair_mask.sum() == 0:
     return np.nan
 
-  normed_residue_mask = pair_mask / (
-      1e-8 + np.sum(pair_mask, axis=-1, keepdims=True)
-  )
+  normed_residue_mask = pair_mask / (1e-8 + np.sum(pair_mask, axis=-1, keepdims=True))
   per_alignment = np.sum(tm_adjusted_pae * normed_residue_mask, axis=-1)
   return per_alignment.max()
 
 
 def chain_pairwise_predicted_tm_scores(
-    tm_adjusted_pae: np.ndarray,
-    pair_mask: np.ndarray,
-    asym_id: np.ndarray,
+  tm_adjusted_pae: np.ndarray,
+  pair_mask: np.ndarray,
+  asym_id: np.ndarray,
 ) -> np.ndarray:
   """Compute predicted TM (pTM) between each pair of chains independently.
 
@@ -653,10 +639,10 @@ def chain_pairwise_predicted_tm_scores(
       is_interface = chain_i != chain_j
       indices = np.ix_(indices, indices)
       iptm = predicted_tm_score(
-          tm_adjusted_pae=tm_adjusted_pae[indices],
-          pair_mask=pair_mask[indices],
-          asym_id=asym_id[mask],
-          interface=is_interface,
+        tm_adjusted_pae=tm_adjusted_pae[indices],
+        pair_mask=pair_mask[indices],
+        asym_id=asym_id[mask],
+        interface=is_interface,
       )
       all_pairs_iptms[i, i + j] = iptm
       all_pairs_iptms[i + j, i] = iptm

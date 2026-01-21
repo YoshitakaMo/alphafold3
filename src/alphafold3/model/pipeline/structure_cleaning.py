@@ -12,75 +12,78 @@
 
 from typing import Any
 
+import numpy as np
 from absl import logging
+
 from alphafold3 import structure
-from alphafold3.constants import chemical_component_sets
-from alphafold3.constants import chemical_components
-from alphafold3.constants import mmcif_names
+from alphafold3.constants import (
+  chemical_component_sets,
+  chemical_components,
+  mmcif_names,
+)
 from alphafold3.model.atom_layout import atom_layout
 from alphafold3.model.pipeline import inter_chain_bonds
 from alphafold3.model.scoring import covalent_bond_cleaning
 from alphafold3.structure import sterics
-import numpy as np
 
 
 def _get_leaving_atom_mask(
-    struc: structure.Structure,
-    polymer_ligand_bonds: atom_layout.AtomLayout | None,
-    ligand_ligand_bonds: atom_layout.AtomLayout | None,
-    chain_id: str,
-    chain_type: str,
-    res_id: int,
-    res_name: str,
+  struc: structure.Structure,
+  polymer_ligand_bonds: atom_layout.AtomLayout | None,
+  ligand_ligand_bonds: atom_layout.AtomLayout | None,
+  chain_id: str,
+  chain_type: str,
+  res_id: int,
+  res_name: str,
 ) -> np.ndarray:
   """Updates a drop_leaving_atoms mask with new leaving atom locations."""
   bonded_atoms = atom_layout.get_bonded_atoms(
-      polymer_ligand_bonds,
-      ligand_ligand_bonds,
-      res_id,
-      chain_id,
+    polymer_ligand_bonds,
+    ligand_ligand_bonds,
+    res_id,
+    chain_id,
   )
   # Connect the amino-acids, i.e. remove OXT, HXT and H2.
   drop_atoms = atom_layout.get_link_drop_atoms(
-      res_name=res_name,
-      chain_type=chain_type,
-      is_start_terminus=False,
-      is_end_terminus=False,
-      bonded_atoms=bonded_atoms,
-      drop_ligand_leaving_atoms=True,
+    res_name=res_name,
+    chain_type=chain_type,
+    is_start_terminus=False,
+    is_end_terminus=False,
+    bonded_atoms=bonded_atoms,
+    drop_ligand_leaving_atoms=True,
   )
   # Default mask where everything is false, which equates to being kept.
   drop_atom_filter_atoms = struc.chain_id != struc.chain_id
   for drop_atom in drop_atoms:
     drop_atom_filter_atom = np.logical_and(
-        np.logical_and(
-            struc.atom_name == drop_atom,
-            struc.chain_id == chain_id,
-        ),
-        struc.res_id == res_id,
+      np.logical_and(
+        struc.atom_name == drop_atom,
+        struc.chain_id == chain_id,
+      ),
+      struc.res_id == res_id,
     )
     drop_atom_filter_atoms = np.logical_or(
-        drop_atom_filter_atoms, drop_atom_filter_atom
+      drop_atom_filter_atoms, drop_atom_filter_atom
     )
   return drop_atom_filter_atoms
 
 
 def clean_structure(
-    struc: structure.Structure,
-    ccd: chemical_components.Ccd,
-    *,
-    drop_missing_sequence: bool,
-    filter_clashes: bool,
-    drop_non_standard_atoms: bool,
-    filter_crystal_aids: bool,
-    filter_waters: bool,
-    filter_hydrogens: bool,
-    filter_leaving_atoms: bool,
-    only_glycan_ligands_for_leaving_atoms: bool,
-    covalent_bonds_only: bool,
-    remove_polymer_polymer_bonds: bool,
-    remove_bad_bonds: bool,
-    remove_nonsymmetric_bonds: bool,
+  struc: structure.Structure,
+  ccd: chemical_components.Ccd,
+  *,
+  drop_missing_sequence: bool,
+  filter_clashes: bool,
+  drop_non_standard_atoms: bool,
+  filter_crystal_aids: bool,
+  filter_waters: bool,
+  filter_hydrogens: bool,
+  filter_leaving_atoms: bool,
+  only_glycan_ligands_for_leaving_atoms: bool,
+  covalent_bonds_only: bool,
+  remove_polymer_polymer_bonds: bool,
+  remove_bad_bonds: bool,
+  remove_nonsymmetric_bonds: bool,
 ) -> tuple[structure.Structure, dict[str, Any]]:
   """Cleans structure.
 
@@ -110,11 +113,11 @@ def clean_structure(
   metadata = {}
   # Crop crystallization aids.
   if (
-      filter_crystal_aids
-      and struc.structure_method in mmcif_names.CRYSTALLIZATION_METHODS
+    filter_crystal_aids
+    and struc.structure_method in mmcif_names.CRYSTALLIZATION_METHODS
   ):
     struc = struc.filter_out(
-        res_name=chemical_component_sets.COMMON_CRYSTALLIZATION_AIDS
+      res_name=chemical_component_sets.COMMON_CRYSTALLIZATION_AIDS
     )
 
   # Drop chains without specified sequences.
@@ -125,7 +128,7 @@ def clean_structure(
       struc = struc.filter_out(chain_id=chains_with_unk_sequence)
   else:
     num_with_unk_sequence = 0
-  metadata['num_with_unk_sequence'] = num_with_unk_sequence
+  metadata["num_with_unk_sequence"] = num_with_unk_sequence
 
   # Remove intersecting chains.
   if filter_clashes and struc.num_chains > 1:
@@ -134,14 +137,12 @@ def clean_structure(
       struc = struc.filter_out(chain_id=clashing_chains)
   else:
     clashing_chains = []
-  metadata['num_clashing_chains_removed'] = len(clashing_chains)
-  metadata['chains_removed'] = clashing_chains
+  metadata["num_clashing_chains_removed"] = len(clashing_chains)
+  metadata["chains_removed"] = clashing_chains
 
   # Drop non-standard atoms
   if drop_non_standard_atoms:
-    struc = struc.drop_non_standard_atoms(
-        ccd=ccd, drop_unk=False, drop_non_ccd=False
-    )
+    struc = struc.drop_non_standard_atoms(ccd=ccd, drop_unk=False, drop_non_ccd=False)
 
   # Sort chains in "reverse-spreadsheet" order.
   struc = struc.with_sorted_chains
@@ -155,26 +156,26 @@ def clean_structure(
   if filter_leaving_atoms:
     drop_leaving_atoms_all = struc.chain_id != struc.chain_id
     polymer_ligand_bonds = inter_chain_bonds.get_polymer_ligand_bonds(
-        struc,
-        only_glycan_ligands=only_glycan_ligands_for_leaving_atoms,
+      struc,
+      only_glycan_ligands=only_glycan_ligands_for_leaving_atoms,
     )
     ligand_ligand_bonds = inter_chain_bonds.get_ligand_ligand_bonds(
-        struc,
-        only_glycan_ligands=only_glycan_ligands_for_leaving_atoms,
+      struc,
+      only_glycan_ligands=only_glycan_ligands_for_leaving_atoms,
     )
     all_glycans = {
-        *chemical_component_sets.GLYCAN_OTHER_LIGANDS,
-        *chemical_component_sets.GLYCAN_LINKING_LIGANDS,
+      *chemical_component_sets.GLYCAN_OTHER_LIGANDS,
+      *chemical_component_sets.GLYCAN_LINKING_LIGANDS,
     }
     # If only glycan ligands and no O1 atoms, we can do parallel drop.
     if (
-        only_glycan_ligands_for_leaving_atoms
-        and (not (ligand_ligand_bonds.atom_name == 'O1').any())
-        and (not (polymer_ligand_bonds.atom_name == 'O1').any())
+      only_glycan_ligands_for_leaving_atoms
+      and (not (ligand_ligand_bonds.atom_name == "O1").any())
+      and (not (polymer_ligand_bonds.atom_name == "O1").any())
     ):
       drop_leaving_atoms_all = np.logical_and(
-          np.isin(struc.atom_name, 'O1'),
-          np.isin(struc.res_name, list(all_glycans)),
+        np.isin(struc.atom_name, "O1"),
+        np.isin(struc.res_name, list(all_glycans)),
       )
     else:
       substruct = struc.group_by_residue
@@ -183,18 +184,18 @@ def clean_structure(
       # We need to iterate over all glycan residues for this.
       for res in substruct.iter_residues():
         # Only need to do drop leaving atoms for glycans depending on bonds.
-        if (res_name := res['res_name']) in all_glycans:
+        if (res_name := res["res_name"]) in all_glycans:
           drop_atom_filter = _get_leaving_atom_mask(
-              struc=struc,
-              polymer_ligand_bonds=polymer_ligand_bonds,
-              ligand_ligand_bonds=ligand_ligand_bonds,
-              chain_id=res['chain_id'],
-              chain_type=res['chain_type'],
-              res_id=res['res_id'],
-              res_name=res_name,
+            struc=struc,
+            polymer_ligand_bonds=polymer_ligand_bonds,
+            ligand_ligand_bonds=ligand_ligand_bonds,
+            chain_id=res["chain_id"],
+            chain_type=res["chain_type"],
+            res_id=res["res_id"],
+            res_name=res_name,
           )
           drop_leaving_atoms_all = np.logical_or(
-              drop_leaving_atoms_all, drop_atom_filter
+            drop_leaving_atoms_all, drop_atom_filter
           )
 
     num_atoms_before = struc.num_atoms
@@ -203,16 +204,16 @@ def clean_structure(
 
     if num_atoms_before > num_atoms_after:
       logging.error(
-          'Dropped %s atoms from GT struc: chain_id %s res_id %s res_name %s',
-          num_atoms_before - num_atoms_after,
-          struc.chain_id,
-          struc.res_id,
-          struc.res_name,
+        "Dropped %s atoms from GT struc: chain_id %s res_id %s res_name %s",
+        num_atoms_before - num_atoms_after,
+        struc.chain_id,
+        struc.res_id,
+        struc.res_name,
       )
 
   # Can filter by bond type without having to iterate over bonds.
   if struc.bonds and covalent_bonds_only:
-    is_covalent = np.isin(struc.bonds.type, ['covale'])
+    is_covalent = np.isin(struc.bonds.type, ["covale"])
     if sum(is_covalent) > 0:
       new_bonds = struc.bonds[is_covalent]
     else:
@@ -229,18 +230,18 @@ def clean_structure(
       from_atom = bond.from_atom
       if remove_polymer_polymer_bonds:
         if (
-            from_atom['chain_type'] in mmcif_names.POLYMER_CHAIN_TYPES
-            and dest_atom['chain_type'] in mmcif_names.POLYMER_CHAIN_TYPES
+          from_atom["chain_type"] in mmcif_names.POLYMER_CHAIN_TYPES
+          and dest_atom["chain_type"] in mmcif_names.POLYMER_CHAIN_TYPES
         ):
           num_pp_bonds += 1
           include_bond.append(False)
           continue
       if remove_bad_bonds:
         dest_coords = np.array(
-            [dest_atom['atom_x'], dest_atom['atom_y'], dest_atom['atom_z']]
+          [dest_atom["atom_x"], dest_atom["atom_y"], dest_atom["atom_z"]]
         )
         from_coords = np.array(
-            [from_atom['atom_x'], from_atom['atom_y'], from_atom['atom_z']]
+          [from_atom["atom_x"], from_atom["atom_y"], from_atom["atom_z"]]
         )
         squared_dist = np.sum(np.square(dest_coords - from_coords))
         squared_threshold = 2.4 * 2.4
@@ -251,13 +252,13 @@ def clean_structure(
       include_bond.append(True)
     if sum(include_bond) < len(struc.bonds):
       logging.info(
-          'Reducing number of bonds for %s from %s to %s, of which %s are'
-          ' polymer-polymer bonds and %s are bad bonds.',
-          struc.name,
-          len(struc.bonds),
-          sum(include_bond),
-          num_pp_bonds,
-          num_bad_bonds,
+        "Reducing number of bonds for %s from %s to %s, of which %s are"
+        " polymer-polymer bonds and %s are bad bonds.",
+        struc.name,
+        len(struc.bonds),
+        sum(include_bond),
+        num_pp_bonds,
+        num_bad_bonds,
       )
       if sum(include_bond) > 0:
         # Need to index bonds with bond keys or arrays of bools with same length
@@ -271,20 +272,18 @@ def clean_structure(
   if struc.bonds and remove_nonsymmetric_bonds:
     # Check for asymmetric polymer-ligand bonds and remove if these exist.
     polymer_ligand_bonds = inter_chain_bonds.get_polymer_ligand_bonds(
-        struc,
-        only_glycan_ligands=False,
+      struc,
+      only_glycan_ligands=False,
     )
     if polymer_ligand_bonds:
       if covalent_bond_cleaning.has_nonsymmetric_bonds_on_symmetric_polymer_chains(
-          struc, polymer_ligand_bonds
+        struc, polymer_ligand_bonds
       ):
-        from_atom_idxs, dest_atom_idxs = struc.bonds.get_atom_indices(
-            struc.atom_key
-        )
+        from_atom_idxs, dest_atom_idxs = struc.bonds.get_atom_indices(struc.atom_key)
         poly_chain_types = list(mmcif_names.POLYMER_CHAIN_TYPES)
         is_polymer_bond = np.logical_or(
-            np.isin(struc.chain_type[from_atom_idxs], poly_chain_types),
-            np.isin(struc.chain_type[dest_atom_idxs], poly_chain_types),
+          np.isin(struc.chain_type[from_atom_idxs], poly_chain_types),
+          np.isin(struc.chain_type[dest_atom_idxs], poly_chain_types),
         )
         struc = struc.copy_and_update(bonds=struc.bonds[~is_polymer_bond])
 
@@ -292,14 +291,14 @@ def clean_structure(
 
 
 def create_empty_output_struc_and_layout(
-    struc: structure.Structure,
-    ccd: chemical_components.Ccd,
-    *,
-    with_hydrogens: bool = False,
-    skip_unk: bool = False,
-    polymer_ligand_bonds: atom_layout.AtomLayout | None = None,
-    ligand_ligand_bonds: atom_layout.AtomLayout | None = None,
-    drop_ligand_leaving_atoms: bool = False,
+  struc: structure.Structure,
+  ccd: chemical_components.Ccd,
+  *,
+  with_hydrogens: bool = False,
+  skip_unk: bool = False,
+  polymer_ligand_bonds: atom_layout.AtomLayout | None = None,
+  ligand_ligand_bonds: atom_layout.AtomLayout | None = None,
+  drop_ligand_leaving_atoms: bool = False,
 ) -> tuple[structure.Structure, atom_layout.AtomLayout]:
   """Make zero-coordinate structure from all physical residues.
 
@@ -319,50 +318,52 @@ def create_empty_output_struc_and_layout(
   bonded_atom_pairs = []
   if polymer_ligand_bonds:
     for chain_ids, res_ids, atom_names in zip(
-        polymer_ligand_bonds.chain_id,
-        polymer_ligand_bonds.res_id,
-        polymer_ligand_bonds.atom_name,
-        strict=True,
+      polymer_ligand_bonds.chain_id,
+      polymer_ligand_bonds.res_id,
+      polymer_ligand_bonds.atom_name,
+      strict=True,
     ):
-      bonded_atom_pairs.append((
+      bonded_atom_pairs.append(
+        (
           (chain_ids[0], res_ids[0], atom_names[0]),
           (chain_ids[1], res_ids[1], atom_names[1]),
-      ))
+        )
+      )
   if ligand_ligand_bonds:
     for chain_ids, res_ids, atom_names in zip(
-        ligand_ligand_bonds.chain_id,
-        ligand_ligand_bonds.res_id,
-        ligand_ligand_bonds.atom_name,
-        strict=True,
+      ligand_ligand_bonds.chain_id,
+      ligand_ligand_bonds.res_id,
+      ligand_ligand_bonds.atom_name,
+      strict=True,
     ):
-      bonded_atom_pairs.append((
+      bonded_atom_pairs.append(
+        (
           (chain_ids[0], res_ids[0], atom_names[0]),
           (chain_ids[1], res_ids[1], atom_names[1]),
-      ))
-  residues = atom_layout.residues_from_structure(
-      struc, include_missing_residues=True
-  )
+        )
+      )
+  residues = atom_layout.residues_from_structure(struc, include_missing_residues=True)
 
   flat_output_layout = atom_layout.make_flat_atom_layout(
-      residues,
-      ccd=ccd,
-      with_hydrogens=with_hydrogens,
-      skip_unk_residues=skip_unk,
-      polymer_ligand_bonds=polymer_ligand_bonds,
-      ligand_ligand_bonds=ligand_ligand_bonds,
-      drop_ligand_leaving_atoms=drop_ligand_leaving_atoms,
+    residues,
+    ccd=ccd,
+    with_hydrogens=with_hydrogens,
+    skip_unk_residues=skip_unk,
+    polymer_ligand_bonds=polymer_ligand_bonds,
+    ligand_ligand_bonds=ligand_ligand_bonds,
+    drop_ligand_leaving_atoms=drop_ligand_leaving_atoms,
   )
 
   empty_output_struc = atom_layout.make_structure(
-      flat_layout=flat_output_layout,
-      atom_coords=np.zeros((flat_output_layout.shape[0], 3)),
-      name=struc.name,
-      atom_b_factors=None,
-      all_physical_residues=residues,
+    flat_layout=flat_output_layout,
+    atom_coords=np.zeros((flat_output_layout.shape[0], 3)),
+    name=struc.name,
+    atom_b_factors=None,
+    all_physical_residues=residues,
   )
   if bonded_atom_pairs:
     empty_output_struc = empty_output_struc.add_bonds(
-        bonded_atom_pairs, bond_type=mmcif_names.COVALENT_BOND
+      bonded_atom_pairs, bond_type=mmcif_names.COVALENT_BOND
     )
 
   return empty_output_struc, flat_output_layout

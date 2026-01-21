@@ -11,27 +11,34 @@
 """Structure class for representing and processing molecular structures."""
 
 import collections
-from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence, Set
 import dataclasses
 import datetime
 import enum
 import functools
 import itertools
 import typing
+from collections.abc import (
+  Callable,
+  Collection,
+  Iterable,
+  Iterator,
+  Mapping,
+  Sequence,
+  Set,
+)
 from typing import Any, ClassVar, Final, Literal, NamedTuple, Self, TypeAlias, TypeVar
 
-from alphafold3.constants import atom_types
-from alphafold3.constants import chemical_components
-from alphafold3.constants import mmcif_names
-from alphafold3.constants import residue_names
-from alphafold3.cpp import membership
-from alphafold3.cpp import string_array
-from alphafold3.structure import bioassemblies
-from alphafold3.structure import chemical_components as struc_chem_comps
-from alphafold3.structure import mmcif
-from alphafold3.structure import structure_tables
-from alphafold3.structure import table
 import numpy as np
+
+from alphafold3.constants import (
+  atom_types,
+  chemical_components,
+  mmcif_names,
+  residue_names,
+)
+from alphafold3.cpp import membership, string_array
+from alphafold3.structure import bioassemblies, mmcif, structure_tables, table
+from alphafold3.structure import chemical_components as struc_chem_comps
 
 # Controls the default number of decimal places for coordinates when writing to
 # mmCIF.
@@ -82,89 +89,95 @@ AuthorNamingScheme: TypeAlias = structure_tables.AuthorNamingScheme
 
 # External residue ID given to missing residues that don't have an ID
 # already provided. In mmCIFs this data is found in _pdbx_poly_seq_scheme.
-MISSING_AUTH_SEQ_ID: Final[str] = '.'
+MISSING_AUTH_SEQ_ID: Final[str] = "."
 
 
 # Maps from structure fields to column names in the relevant table.
 CHAIN_FIELDS: Final[Mapping[str, str]] = {
-    'chain_id': 'id',
-    'chain_type': 'type',
-    'chain_auth_asym_id': 'auth_asym_id',
-    'chain_entity_id': 'entity_id',
-    'chain_entity_desc': 'entity_desc',
+  "chain_id": "id",
+  "chain_type": "type",
+  "chain_auth_asym_id": "auth_asym_id",
+  "chain_entity_id": "entity_id",
+  "chain_entity_desc": "entity_desc",
 }
 
 
 RESIDUE_FIELDS: Final[Mapping[str, str]] = {
-    'res_id': 'id',
-    'res_name': 'name',
-    'res_auth_seq_id': 'auth_seq_id',
-    'res_insertion_code': 'insertion_code',
+  "res_id": "id",
+  "res_name": "name",
+  "res_auth_seq_id": "auth_seq_id",
+  "res_insertion_code": "insertion_code",
 }
 
 ATOM_FIELDS: Final[Mapping[str, str]] = {
-    'atom_name': 'name',
-    'atom_element': 'element',
-    'atom_x': 'x',
-    'atom_y': 'y',
-    'atom_z': 'z',
-    'atom_b_factor': 'b_factor',
-    'atom_occupancy': 'occupancy',
-    'atom_key': 'key',
+  "atom_name": "name",
+  "atom_element": "element",
+  "atom_x": "x",
+  "atom_y": "y",
+  "atom_z": "z",
+  "atom_b_factor": "b_factor",
+  "atom_occupancy": "occupancy",
+  "atom_key": "key",
 }
 
 # Fields in structure.
-ARRAY_FIELDS = frozenset({
-    'atom_b_factor',
-    'atom_element',
-    'atom_key',
-    'atom_name',
-    'atom_occupancy',
-    'atom_x',
-    'atom_y',
-    'atom_z',
-    'chain_id',
-    'chain_type',
-    'res_id',
-    'res_name',
-})
+ARRAY_FIELDS = frozenset(
+  {
+    "atom_b_factor",
+    "atom_element",
+    "atom_key",
+    "atom_name",
+    "atom_occupancy",
+    "atom_x",
+    "atom_y",
+    "atom_z",
+    "chain_id",
+    "chain_type",
+    "res_id",
+    "res_name",
+  }
+)
 
-GLOBAL_FIELDS = frozenset({
-    'name',
-    'release_date',
-    'resolution',
-    'structure_method',
-    'bioassembly_data',
-    'chemical_components_data',
-})
+GLOBAL_FIELDS = frozenset(
+  {
+    "name",
+    "release_date",
+    "resolution",
+    "structure_method",
+    "bioassembly_data",
+    "chemical_components_data",
+  }
+)
 
 # Fields which can be updated in copy_and_update.
-_UPDATEABLE_FIELDS: Final[Set[str]] = frozenset({
-    'all_residues',
-    'atom_b_factor',
-    'atom_element',
-    'atom_key',
-    'atom_name',
-    'atom_occupancy',
-    'atom_x',
-    'atom_y',
-    'atom_z',
-    'bioassembly_data',
-    'bonds',
-    'chain_id',
-    'chain_type',
-    'chemical_components_data',
-    'name',
-    'release_date',
-    'res_id',
-    'res_name',
-    'resolution',
-    'structure_method',
-})
+_UPDATEABLE_FIELDS: Final[Set[str]] = frozenset(
+  {
+    "all_residues",
+    "atom_b_factor",
+    "atom_element",
+    "atom_key",
+    "atom_name",
+    "atom_occupancy",
+    "atom_x",
+    "atom_y",
+    "atom_z",
+    "bioassembly_data",
+    "bonds",
+    "chain_id",
+    "chain_type",
+    "chemical_components_data",
+    "name",
+    "release_date",
+    "res_id",
+    "res_name",
+    "resolution",
+    "structure_method",
+  }
+)
 
 
 def fix_non_standard_polymer_residues(
-    res_names: np.ndarray, chain_type: str
+  res_names: np.ndarray, chain_type: str
 ) -> np.ndarray:
   """Remaps residue names to the closest standard protein/RNA/DNA residue.
 
@@ -188,30 +201,30 @@ def fix_non_standard_polymer_residues(
   """
   # Map to one letter code, then back to common res_names.
   one_letter_codes = string_array.remap(
-      res_names, mapping=residue_names.CCD_NAME_TO_ONE_LETTER, default_value='X'
+    res_names, mapping=residue_names.CCD_NAME_TO_ONE_LETTER, default_value="X"
   )
 
   if (
-      chain_type in mmcif_names.PEPTIDE_CHAIN_TYPES
-      or chain_type == mmcif_names.OTHER_CHAIN
+    chain_type in mmcif_names.PEPTIDE_CHAIN_TYPES
+    or chain_type == mmcif_names.OTHER_CHAIN
   ):
     mapping = residue_names.PROTEIN_COMMON_ONE_TO_THREE
-    default_value = 'UNK'
+    default_value = "UNK"
   elif chain_type == mmcif_names.RNA_CHAIN:
     # RNA has single-letter CCD monomer codes.
     mapping = {r: r for r in residue_names.RNA_TYPES}
-    default_value = 'N'
+    default_value = "N"
   elif chain_type == mmcif_names.DNA_CHAIN:
     mapping = residue_names.DNA_COMMON_ONE_TO_TWO
-    default_value = 'N'
+    default_value = "N"
   elif chain_type == mmcif_names.DNA_RNA_HYBRID_CHAIN:
     mapping = {r: r for r in residue_names.NUCLEIC_TYPES_WITH_UNKNOWN}
-    default_value = 'N'
+    default_value = "N"
   else:
-    raise ValueError(f'Expected a protein/DNA/RNA chain but got {chain_type}')
+    raise ValueError(f"Expected a protein/DNA/RNA chain but got {chain_type}")
 
   return string_array.remap(
-      one_letter_codes, mapping=mapping, default_value=default_value
+    one_letter_codes, mapping=mapping, default_value=default_value
   )
 
 
@@ -224,11 +237,11 @@ def _get_change_indices(arr: np.ndarray) -> np.ndarray:
 
 
 def _unpack_filter_predicates(
-    predicate_by_field_name: Mapping[str, table.FilterPredicate],
+  predicate_by_field_name: Mapping[str, table.FilterPredicate],
 ) -> tuple[
-    Mapping[str, table.FilterPredicate],
-    Mapping[str, table.FilterPredicate],
-    Mapping[str, table.FilterPredicate],
+  Mapping[str, table.FilterPredicate],
+  Mapping[str, table.FilterPredicate],
+  Mapping[str, table.FilterPredicate],
 ]:
   """Unpacks filter kwargs into predicates for each table."""
   chain_predicates = {}
@@ -246,21 +259,23 @@ def _unpack_filter_predicates(
   return chain_predicates, res_predicates, atom_predicates
 
 
-_T = TypeVar('_T')
+_T = TypeVar("_T")
 
 
-SCALAR_FIELDS: Final[Collection[str]] = frozenset({
-    'name',
-    'release_date',
-    'resolution',
-    'structure_method',
-    'bioassembly_data',
-    'chemical_components_data',
-})
+SCALAR_FIELDS: Final[Collection[str]] = frozenset(
+  {
+    "name",
+    "release_date",
+    "resolution",
+    "structure_method",
+    "bioassembly_data",
+    "chemical_components_data",
+  }
+)
 
 
 TABLE_FIELDS: Final[Collection[str]] = frozenset(
-    {'chains', 'residues', 'atoms', 'bonds'}
+  {"chains", "residues", "atoms", "bonds"}
 )
 
 
@@ -299,34 +314,32 @@ class Structure(table.Database):
   tables: ClassVar[Collection[str]] = TABLE_FIELDS
 
   foreign_keys: ClassVar[Mapping[str, Collection[tuple[str, str]]]] = {
-      'residues': (('chain_key', 'chains'),),
-      'atoms': (('chain_key', 'chains'), ('res_key', 'residues')),
-      'bonds': (('from_atom_key', 'atoms'), ('dest_atom_key', 'atoms')),
+    "residues": (("chain_key", "chains"),),
+    "atoms": (("chain_key", "chains"), ("res_key", "residues")),
+    "bonds": (("from_atom_key", "atoms"), ("dest_atom_key", "atoms")),
   }
 
   def __init__(
-      self,
-      *,
-      name: str = 'unset',
-      release_date: datetime.date | None = None,
-      resolution: float | None = None,
-      structure_method: str | None = None,
-      bioassembly_data: bioassemblies.BioassemblyData | None = None,
-      chemical_components_data: (
-          struc_chem_comps.ChemicalComponentsData | None
-      ) = None,
-      chains: structure_tables.Chains,
-      residues: structure_tables.Residues,
-      atoms: structure_tables.Atoms,
-      bonds: structure_tables.Bonds,
-      skip_validation: bool = False,
+    self,
+    *,
+    name: str = "unset",
+    release_date: datetime.date | None = None,
+    resolution: float | None = None,
+    structure_method: str | None = None,
+    bioassembly_data: bioassemblies.BioassemblyData | None = None,
+    chemical_components_data: (struc_chem_comps.ChemicalComponentsData | None) = None,
+    chains: structure_tables.Chains,
+    residues: structure_tables.Residues,
+    atoms: structure_tables.Atoms,
+    bonds: structure_tables.Bonds,
+    skip_validation: bool = False,
   ):
     # Version number is written to mmCIF and should be incremented when changes
     # are made to mmCIF writing or internals that affect this.
     # b/345221494 Rename this variable when structure_v1 compatibility code
     # is removed.
-    self._VERSION = '2.0.0'  # pylint: disable=invalid-name
-    self._name = name or 'unset'
+    self._VERSION = "2.0.0"  # pylint: disable=invalid-name
+    self._name = name or "unset"
     self._release_date = release_date
     self._resolution = resolution
     self._structure_method = structure_method
@@ -348,20 +361,18 @@ class Structure(table.Database):
     chain_keys = set(self._chains.key)
     if np.any(membership.isin(self._atoms.res_key, residue_keys, invert=True)):
       raise ValueError(
-          'Atom residue keys not in the residues table: '
-          f'{set(self._atoms.res_key).difference(self._residues.key)}'
+        "Atom residue keys not in the residues table: "
+        f"{set(self._atoms.res_key).difference(self._residues.key)}"
       )
     if np.any(membership.isin(self._atoms.chain_key, chain_keys, invert=True)):
       raise ValueError(
-          'Atom chain keys not in the chains table: '
-          f'{set(self._atoms.chain_key).difference(self._chains.key)}'
+        "Atom chain keys not in the chains table: "
+        f"{set(self._atoms.chain_key).difference(self._chains.key)}"
       )
-    if np.any(
-        membership.isin(self._residues.chain_key, chain_keys, invert=True)
-    ):
+    if np.any(membership.isin(self._residues.chain_key, chain_keys, invert=True)):
       raise ValueError(
-          'Residue chain keys not in the chains table: '
-          f'{set(self._residues.chain_key).difference(self._chains.key)}'
+        "Residue chain keys not in the chains table: "
+        f"{set(self._residues.chain_key).difference(self._chains.key)}"
       )
 
   def _validate_consistent_table_ordering(self):
@@ -371,24 +382,24 @@ class Structure(table.Database):
 
     if not np.array_equal(self.present_chains.key, atom_chain_keys):
       raise ValueError(
-          f'Atom table chain order\n{atom_chain_keys}\ndoes not match the '
-          f'chain table order\n{self._chains.key}'
+        f"Atom table chain order\n{atom_chain_keys}\ndoes not match the "
+        f"chain table order\n{self._chains.key}"
       )
     if not np.array_equal(self.present_residues.key, atom_res_keys):
       raise ValueError(
-          f'Atom table residue order\n{atom_res_keys}\ndoes not match the '
-          f'present residue table order\n{self.present_residues.key}'
+        f"Atom table residue order\n{atom_res_keys}\ndoes not match the "
+        f"present residue table order\n{self.present_residues.key}"
       )
 
   def get_table(self, table_name: str) -> table.Table:
     match table_name:
-      case 'chains':
+      case "chains":
         return self.chains_table
-      case 'residues':
+      case "residues":
         return self.residues_table
-      case 'atoms':
+      case "atoms":
         return self.atoms_table
-      case 'bonds':
+      case "bonds":
         return self.bonds_table
       case _:
         raise ValueError(table_name)
@@ -435,7 +446,7 @@ class Structure(table.Database):
 
   @property
   def chemical_components_data(
-      self,
+    self,
   ) -> struc_chem_comps.ChemicalComponentsData | None:
     return self._chemical_components_data
 
@@ -470,15 +481,15 @@ class Structure(table.Database):
       ins_code = self._residues.insertion_code[res_i]
       # Compatibility with Structure v1 which used None to represent . or ?.
       insertion_code[chain_id][res_id] = (
-          ins_code if ins_code not in {'.', '?'} else None
+        ins_code if ins_code not in {".", "?"} else None
       )
 
     return AuthorNamingScheme(
-        auth_asym_id=auth_asym_id,
-        entity_id=entity_id,
-        entity_desc=entity_desc,
-        auth_seq_id=dict(auth_seq_id),
-        insertion_code=dict(insertion_code),
+      auth_asym_id=auth_asym_id,
+      entity_id=entity_id,
+      entity_desc=entity_desc,
+      auth_seq_id=dict(auth_seq_id),
+      insertion_code=dict(insertion_code),
     )
 
   @functools.cached_property
@@ -486,13 +497,13 @@ class Structure(table.Database):
     chain_id_by_key = dict(zip(self._chains.key, self._chains.id))
     residue_chain_boundaries = _get_change_indices(self._residues.chain_key)
     boundaries = self._iter_residue_ranges(
-        residue_chain_boundaries, count_unresolved=True
+      residue_chain_boundaries, count_unresolved=True
     )
     return {
-        chain_id_by_key[self._residues.chain_key[start]]: list(
-            zip(self._residues.name[start:end], self._residues.id[start:end])
-        )
-        for start, end in boundaries
+      chain_id_by_key[self._residues.chain_key[start]]: list(
+        zip(self._residues.name[start:end], self._residues.id[start:end])
+      )
+      for start, end in boundaries
     }
 
   @functools.cached_property
@@ -502,22 +513,18 @@ class Structure(table.Database):
   @functools.cached_property
   def chain_entity_id(self) -> np.ndarray:
     """Returns the entity ID for each atom in the structure."""
-    return self.chains_table.apply_array_to_column(
-        'entity_id', self._atoms.chain_key
-    )
+    return self.chains_table.apply_array_to_column("entity_id", self._atoms.chain_key)
 
   @functools.cached_property
   def chain_entity_desc(self) -> np.ndarray:
     """Returns the entity description for each atom in the structure."""
-    return self.chains_table.apply_array_to_column(
-        'entity_desc', self._atoms.chain_key
-    )
+    return self.chains_table.apply_array_to_column("entity_desc", self._atoms.chain_key)
 
   @functools.cached_property
   def chain_auth_asym_id(self) -> np.ndarray:
     """Returns the chain auth asym ID for each atom in the structure."""
     return self.chains_table.apply_array_to_column(
-        'auth_asym_id', self._atoms.chain_key
+      "auth_asym_id", self._atoms.chain_key
     )
 
   @functools.cached_property
@@ -532,24 +539,22 @@ class Structure(table.Database):
 
   @functools.cached_property
   def res_id(self) -> np.ndarray:
-    return self._residues['id', self._atoms.res_key]
+    return self._residues["id", self._atoms.res_key]
 
   @functools.cached_property
   def res_name(self) -> np.ndarray:
-    return self._residues['name', self._atoms.res_key]
+    return self._residues["name", self._atoms.res_key]
 
   @functools.cached_property
   def res_auth_seq_id(self) -> np.ndarray:
     """Returns the residue auth seq ID for each atom in the structure."""
-    return self.residues_table.apply_array_to_column(
-        'auth_seq_id', self._atoms.res_key
-    )
+    return self.residues_table.apply_array_to_column("auth_seq_id", self._atoms.res_key)
 
   @functools.cached_property
   def res_insertion_code(self) -> np.ndarray:
     """Returns the residue insertion code for each atom in the structure."""
     return self.residues_table.apply_array_to_column(
-        'insertion_code', self._atoms.res_key
+      "insertion_code", self._atoms.res_key
     )
 
   @property
@@ -604,19 +609,13 @@ class Structure(table.Database):
   def present_residues(self) -> structure_tables.Residues:
     """Returns table of residues which have at least 1 resolved atom."""
     is_present_mask = np.isin(self._residues.key, self._atoms.res_key)
-    return typing.cast(
-        structure_tables.Residues, self._residues[is_present_mask]
-    )
+    return typing.cast(structure_tables.Residues, self._residues[is_present_mask])
 
   @functools.cached_property
   def unresolved_residues(self) -> structure_tables.Residues:
     """Returns table of residues which have at least 1 resolved atom."""
-    is_unresolved_mask = np.isin(
-        self._residues.key, self._atoms.res_key, invert=True
-    )
-    return typing.cast(
-        structure_tables.Residues, self._residues[is_unresolved_mask]
-    )
+    is_unresolved_mask = np.isin(self._residues.key, self._atoms.res_key, invert=True)
+    return typing.cast(structure_tables.Residues, self._residues[is_unresolved_mask])
 
   def __getitem__(self, field: str) -> Any:
     """Gets raw field data using field name as a string."""
@@ -632,17 +631,17 @@ class Structure(table.Database):
       Members with cached properties removed.
     """
     cached_props = {
-        k
-        for k, v in self.__class__.__dict__.items()
-        if isinstance(v, functools.cached_property)
+      k
+      for k, v in self.__class__.__dict__.items()
+      if isinstance(v, functools.cached_property)
     }
     return {k: v for k, v in self.__dict__.items() if k not in cached_props}
 
   def __repr__(self):
     return (
-        f'Structure({self._name}: {self.num_chains} chains, '
-        f'{self.num_residues(count_unresolved=False)} residues, '
-        f'{self.num_atoms} atoms)'
+      f"Structure({self._name}: {self.num_chains} chains, "
+      f"{self.num_residues(count_unresolved=False)} residues, "
+      f"{self.num_atoms} atoms)"
     )
 
   @property
@@ -718,11 +717,11 @@ class Structure(table.Database):
       return
 
     current_chain = self._chains.get_row_by_key(
-        column_name_map=CHAIN_FIELDS, key=self._atoms.chain_key[0]
+      column_name_map=CHAIN_FIELDS, key=self._atoms.chain_key[0]
     )
     current_chain_key = self._atoms.chain_key[0]
     current_res = self._residues.get_row_by_key(
-        column_name_map=RESIDUE_FIELDS, key=self._atoms.res_key[0]
+      column_name_map=RESIDUE_FIELDS, key=self._atoms.res_key[0]
     )
     current_res_key = self._atoms.res_key[0]
     for atom_i in range(self._atoms.size):
@@ -732,39 +731,39 @@ class Structure(table.Database):
       if atom_chain_key != current_chain_key:
         chain_index = self._chains.index_by_key[atom_chain_key]
         current_chain = {
-            'chain_id': self._chains.id[chain_index],
-            'chain_type': self._chains.type[chain_index],
-            'chain_auth_asym_id': self._chains.auth_asym_id[chain_index],
-            'chain_entity_id': self._chains.entity_id[chain_index],
-            'chain_entity_desc': self._chains.entity_desc[chain_index],
+          "chain_id": self._chains.id[chain_index],
+          "chain_type": self._chains.type[chain_index],
+          "chain_auth_asym_id": self._chains.auth_asym_id[chain_index],
+          "chain_entity_id": self._chains.entity_id[chain_index],
+          "chain_entity_desc": self._chains.entity_desc[chain_index],
         }
         current_chain_key = atom_chain_key
       if atom_res_key != current_res_key:
         res_index = self._residues.index_by_key[atom_res_key]
         current_res = {
-            'res_id': self._residues.id[res_index],
-            'res_name': self._residues.name[res_index],
-            'res_auth_seq_id': self._residues.auth_seq_id[res_index],
-            'res_insertion_code': self._residues.insertion_code[res_index],
+          "res_id": self._residues.id[res_index],
+          "res_name": self._residues.name[res_index],
+          "res_auth_seq_id": self._residues.auth_seq_id[res_index],
+          "res_insertion_code": self._residues.insertion_code[res_index],
         }
         current_res_key = atom_res_key
 
       yield {
-          'atom_name': self._atoms.name[atom_i],
-          'atom_element': self._atoms.element[atom_i],
-          'atom_x': self._atoms.x[..., atom_i],
-          'atom_y': self._atoms.y[..., atom_i],
-          'atom_z': self._atoms.z[..., atom_i],
-          'atom_b_factor': self._atoms.b_factor[..., atom_i],
-          'atom_occupancy': self._atoms.occupancy[..., atom_i],
-          'atom_key': self._atoms.key[atom_i],
-          **current_res,
-          **current_chain,
+        "atom_name": self._atoms.name[atom_i],
+        "atom_element": self._atoms.element[atom_i],
+        "atom_x": self._atoms.x[..., atom_i],
+        "atom_y": self._atoms.y[..., atom_i],
+        "atom_z": self._atoms.z[..., atom_i],
+        "atom_b_factor": self._atoms.b_factor[..., atom_i],
+        "atom_occupancy": self._atoms.occupancy[..., atom_i],
+        "atom_key": self._atoms.key[atom_i],
+        **current_res,
+        **current_chain,
       }
 
   def iter_residues(
-      self,
-      include_unresolved: bool = False,
+    self,
+    include_unresolved: bool = False,
   ) -> Iterator[Mapping[str, Any]]:
     """Iterates over the residues in the structure."""
     res_table = self._residues if include_unresolved else self.present_residues
@@ -772,7 +771,7 @@ class Structure(table.Database):
       return
 
     current_chain = self._chains.get_row_by_key(
-        column_name_map=CHAIN_FIELDS, key=res_table.chain_key[0]
+      column_name_map=CHAIN_FIELDS, key=res_table.chain_key[0]
     )
     current_chain_key = res_table.chain_key[0]
     for res_i in range(res_table.size):
@@ -780,21 +779,19 @@ class Structure(table.Database):
 
       if res_chain_key != current_chain_key:
         current_chain = self._chains.get_row_by_key(
-            column_name_map=CHAIN_FIELDS, key=res_table.chain_key[res_i]
+          column_name_map=CHAIN_FIELDS, key=res_table.chain_key[res_i]
         )
         current_chain_key = res_chain_key
 
       row = {
-          'res_id': res_table.id[res_i],
-          'res_name': res_table.name[res_i],
-          'res_auth_seq_id': res_table.auth_seq_id[res_i],
-          'res_insertion_code': res_table.insertion_code[res_i],
+        "res_id": res_table.id[res_i],
+        "res_name": res_table.name[res_i],
+        "res_auth_seq_id": res_table.auth_seq_id[res_i],
+        "res_insertion_code": res_table.insertion_code[res_i],
       }
       yield row | current_chain
 
-  def _iter_atom_ranges(
-      self, boundaries: Sequence[int]
-  ) -> Iterator[tuple[int, int]]:
+  def _iter_atom_ranges(self, boundaries: Sequence[int]) -> Iterator[tuple[int, int]]:
     """Iterator for (start, end) pairs from an array of start indices."""
     yield from itertools.pairwise(boundaries)
     # Use explicit length test as boundaries can be a NumPy array.
@@ -802,10 +799,10 @@ class Structure(table.Database):
       yield boundaries[-1], self.num_atoms
 
   def _iter_residue_ranges(
-      self,
-      boundaries: Sequence[int],
-      *,
-      count_unresolved: bool,
+    self,
+    boundaries: Sequence[int],
+    *,
+    count_unresolved: bool,
   ) -> Iterator[tuple[int, int]]:
     """Iterator for (start, end) pairs from an array of start indices."""
     yield from itertools.pairwise(boundaries)
@@ -837,11 +834,11 @@ class Structure(table.Database):
     """Iterates over the chains in the structure."""
     for chain_i in range(self.present_chains.size):
       yield {
-          'chain_id': self.present_chains.id[chain_i],
-          'chain_type': self.present_chains.type[chain_i],
-          'chain_auth_asym_id': self.present_chains.auth_asym_id[chain_i],
-          'chain_entity_id': self.present_chains.entity_id[chain_i],
-          'chain_entity_desc': self.present_chains.entity_desc[chain_i],
+        "chain_id": self.present_chains.id[chain_i],
+        "chain_type": self.present_chains.type[chain_i],
+        "chain_auth_asym_id": self.present_chains.auth_asym_id[chain_i],
+        "chain_entity_id": self.present_chains.entity_id[chain_i],
+        "chain_entity_desc": self.present_chains.entity_desc[chain_i],
       }
 
   def iter_bonds(self) -> Iterator[Bond]:
@@ -868,29 +865,29 @@ class Structure(table.Database):
       key per column in the bonds table.
     """
     from_atom_iter = self._atoms.iterrows(
-        row_keys=self._bonds.from_atom_key,
-        column_name_map=ATOM_FIELDS,
-        chain_key=self._chains.with_column_names(CHAIN_FIELDS),
-        res_key=self._residues.with_column_names(RESIDUE_FIELDS),
+      row_keys=self._bonds.from_atom_key,
+      column_name_map=ATOM_FIELDS,
+      chain_key=self._chains.with_column_names(CHAIN_FIELDS),
+      res_key=self._residues.with_column_names(RESIDUE_FIELDS),
     )
     dest_atom_iter = self._atoms.iterrows(
-        row_keys=self._bonds.dest_atom_key,
-        column_name_map=ATOM_FIELDS,
-        chain_key=self._chains.with_column_names(CHAIN_FIELDS),
-        res_key=self._residues.with_column_names(RESIDUE_FIELDS),
+      row_keys=self._bonds.dest_atom_key,
+      column_name_map=ATOM_FIELDS,
+      chain_key=self._chains.with_column_names(CHAIN_FIELDS),
+      res_key=self._residues.with_column_names(RESIDUE_FIELDS),
     )
 
     for from_atom, dest_atom, bond_info in zip(
-        from_atom_iter, dest_atom_iter, self._bonds.iterrows(), strict=True
+      from_atom_iter, dest_atom_iter, self._bonds.iterrows(), strict=True
     ):
       yield Bond(from_atom=from_atom, dest_atom=dest_atom, bond_info=bond_info)
 
   def _apply_atom_index_array(
-      self,
-      index_arr: np.ndarray,
-      chain_boundaries: np.ndarray | None = None,
-      res_boundaries: np.ndarray | None = None,
-      skip_validation: bool = False,
+    self,
+    index_arr: np.ndarray,
+    chain_boundaries: np.ndarray | None = None,
+    res_boundaries: np.ndarray | None = None,
+    skip_validation: bool = False,
   ) -> Self:
     """Applies index_arr to the atom table using NumPy-style array indexing.
 
@@ -912,20 +909,20 @@ class Structure(table.Database):
 
     if index_arr.ndim != 1:
       raise ValueError(
-          f'index_arr must be a 1D NumPy array, but has shape {index_arr.shape}'
+        f"index_arr must be a 1D NumPy array, but has shape {index_arr.shape}"
       )
 
     if index_arr.dtype == bool and np.all(index_arr):
       return self  # Shortcut: The operation is a no-op, so just return itself.
 
     atoms = structure_tables.Atoms(
-        **{col: self._atoms[col][..., index_arr] for col in self._atoms.columns}
+      **{col: self._atoms[col][..., index_arr] for col in self._atoms.columns}
     )
     updated_tables = self._cascade_delete(atoms=atoms)
     return self.copy_and_update(
-        atoms=updated_tables.atoms,
-        bonds=updated_tables.bonds,
-        skip_validation=skip_validation,
+      atoms=updated_tables.atoms,
+      bonds=updated_tables.bonds,
+      skip_validation=skip_validation,
     )
 
   @property
@@ -940,9 +937,7 @@ class Structure(table.Database):
     """
     # This use of _apply_atom_index_array is safe because the chain/residue/atom
     # ordering won't change (essentially applying a residue start mask).
-    return self._apply_atom_index_array(
-        self.res_boundaries, skip_validation=True
-    )
+    return self._apply_atom_index_array(self.res_boundaries, skip_validation=True)
 
   @property
   def group_by_chain(self) -> Self:
@@ -956,9 +951,7 @@ class Structure(table.Database):
     """
     # This use of _apply_atom_index_array is safe because the chain/residue/atom
     # ordering won't change (essentially applying a chain start mask).
-    return self._apply_atom_index_array(
-        self.chain_boundaries, skip_validation=True
-    )
+    return self._apply_atom_index_array(self.chain_boundaries, skip_validation=True)
 
   @property
   def with_sorted_chains(self) -> Self:
@@ -988,19 +981,15 @@ class Structure(table.Database):
     """
     # Convert to Numpy strings, then to Python strings (dtype=object).
     res_ids = self.residues_table.id.astype(str).astype(object)
-    res_ids = res_ids[
-        self.residues_table.index_by_key[self.atoms_table.res_key]
-    ]
+    res_ids = res_ids[self.residues_table.index_by_key[self.atoms_table.res_key]]
     ins_codes = [None] * self.num_atoms
-    return list(
-        zip(self.chain_id, res_ids, ins_codes, self.atom_name, strict=True)
-    )
+    return list(zip(self.chain_id, res_ids, ins_codes, self.atom_name, strict=True))
 
   def order_and_drop_atoms_to_match(
-      self,
-      other: 'Structure',
-      *,
-      allow_missing_atoms: bool = False,
+    self,
+    other: "Structure",
+    *,
+    allow_missing_atoms: bool = False,
   ) -> Self:
     """Returns a new structure with atoms ordered & dropped to match another's.
 
@@ -1049,49 +1038,45 @@ class Structure(table.Database):
       if allow_missing_atoms:
         # Only include atoms that were found in the other structure.
         atom_indices = [
-            atom_index
-            for atom_id in other.atom_ids
-            if (atom_index := atom_index_map.get(atom_id)) is not None
+          atom_index
+          for atom_id in other.atom_ids
+          if (atom_index := atom_index_map.get(atom_id)) is not None
         ]
       else:
         atom_indices = [
-            atom_index_map[atom_id]  # Hard fail on missing.
-            for atom_id in other.atom_ids
+          atom_index_map[atom_id]  # Hard fail on missing.
+          for atom_id in other.atom_ids
         ]
     except KeyError as e:
       if len(e.args[0]) == 4:
         chain_id, res_id, ins_code, atom_name = e.args[0]
         raise MissingAtomError(
-            f'No atom in this structure (name: {self._name}) matches atom in '
-            f'other structure (name: {other.name}) with internal (label) chain '
-            f'ID {chain_id}, residue ID {res_id}, insertion code {ins_code} '
-            f'and atom name {atom_name}.'
+          f"No atom in this structure (name: {self._name}) matches atom in "
+          f"other structure (name: {other.name}) with internal (label) chain "
+          f"ID {chain_id}, residue ID {res_id}, insertion code {ins_code} "
+          f"and atom name {atom_name}."
         ) from e
       else:
         raise
 
     def _iter_residues(struc: Self) -> Iterable[tuple[str, str]]:
       yield from zip(
-          struc.chains_table['id', struc.residues_table.chain_key],
-          struc.residues_table.id,
-          strict=True,
+        struc.chains_table["id", struc.residues_table.chain_key],
+        struc.residues_table.id,
+        strict=True,
       )
 
-    chain_index_map = {
-        chain_id: i for i, chain_id in enumerate(self._chains.id)
-    }
+    chain_index_map = {chain_id: i for i, chain_id in enumerate(self._chains.id)}
     chain_indices = [
-        chain_index
-        for chain_id in other.chains_table.id
-        if (chain_index := chain_index_map.get(chain_id)) is not None
+      chain_index
+      for chain_id in other.chains_table.id
+      if (chain_index := chain_index_map.get(chain_id)) is not None
     ]
-    residue_index_map = {
-        res_id: i for i, res_id in enumerate(_iter_residues(self))
-    }
+    residue_index_map = {res_id: i for i, res_id in enumerate(_iter_residues(self))}
     res_indices = [
-        residue_index
-        for res_id in _iter_residues(other)
-        if (residue_index := residue_index_map.get(res_id)) is not None
+      residue_index
+      for res_id in _iter_residues(other)
+      if (residue_index := residue_index_map.get(res_id)) is not None
     ]
 
     # Reorder all tables.
@@ -1104,7 +1089,7 @@ class Structure(table.Database):
     new_chain_key_order = atoms.chain_key[new_chain_boundaries]
     if len(new_chain_key_order) != len(set(new_chain_key_order)):
       raise ValueError(
-          f'Chain keys not contiguous after reordering: {new_chain_key_order}'
+        f"Chain keys not contiguous after reordering: {new_chain_key_order}"
       )
 
     # Get residue keys in the order they appear in the atoms table.
@@ -1112,40 +1097,38 @@ class Structure(table.Database):
     new_res_key_order = atoms.res_key[new_res_boundaries]
     if len(new_res_key_order) != len(set(new_res_key_order)):
       raise ValueError(
-          f'Residue keys not contiguous after reordering: {new_res_key_order}'
+        f"Residue keys not contiguous after reordering: {new_res_key_order}"
       )
 
     # If any atoms were deleted, propagate that into the bonds table.
     updated_tables = self._cascade_delete(
-        chains=chains,
-        residues=residues,
-        atoms=atoms,
+      chains=chains,
+      residues=residues,
+      atoms=atoms,
     )
     return self.copy_and_update(
-        chains=chains,
-        residues=residues,
-        atoms=updated_tables.atoms,
-        bonds=updated_tables.bonds,
+      chains=chains,
+      residues=residues,
+      atoms=updated_tables.atoms,
+      bonds=updated_tables.bonds,
     )
 
   def copy_and_update(
-      self,
-      *,
-      name: str | Literal[_UNSET] = _UNSET,
-      release_date: datetime.date | None | Literal[_UNSET] = _UNSET,
-      resolution: float | None | Literal[_UNSET] = _UNSET,
-      structure_method: str | None | Literal[_UNSET] = _UNSET,
-      bioassembly_data: (
-          bioassemblies.BioassemblyData | None | Literal[_UNSET]
-      ) = _UNSET,
-      chemical_components_data: (
-          struc_chem_comps.ChemicalComponentsData | None | Literal[_UNSET]
-      ) = _UNSET,
-      chains: structure_tables.Chains | None | Literal[_UNSET] = _UNSET,
-      residues: structure_tables.Residues | None | Literal[_UNSET] = _UNSET,
-      atoms: structure_tables.Atoms | None | Literal[_UNSET] = _UNSET,
-      bonds: structure_tables.Bonds | None | Literal[_UNSET] = _UNSET,
-      skip_validation: bool = False,
+    self,
+    *,
+    name: str | Literal[_UNSET] = _UNSET,
+    release_date: datetime.date | None | Literal[_UNSET] = _UNSET,
+    resolution: float | None | Literal[_UNSET] = _UNSET,
+    structure_method: str | None | Literal[_UNSET] = _UNSET,
+    bioassembly_data: (bioassemblies.BioassemblyData | None | Literal[_UNSET]) = _UNSET,
+    chemical_components_data: (
+      struc_chem_comps.ChemicalComponentsData | None | Literal[_UNSET]
+    ) = _UNSET,
+    chains: structure_tables.Chains | None | Literal[_UNSET] = _UNSET,
+    residues: structure_tables.Residues | None | Literal[_UNSET] = _UNSET,
+    atoms: structure_tables.Atoms | None | Literal[_UNSET] = _UNSET,
+    bonds: structure_tables.Bonds | None | Literal[_UNSET] = _UNSET,
+    skip_validation: bool = False,
   ) -> Self:
     """Performs a shallow copy but with specified fields updated."""
 
@@ -1153,92 +1136,92 @@ class Structure(table.Database):
       return all(field == _UNSET for field in fields)
 
     if all_unset((chains, residues, atoms, bonds)):
-      if all_unset((
+      if all_unset(
+        (
           name,
           release_date,
           resolution,
           structure_method,
           bioassembly_data,
           chemical_components_data,
-      )):
+        )
+      ):
         raise ValueError(
-            'Unnecessary call to copy_and_update with no changes. As Structure'
-            ' and its component tables are immutable, there is no need to copy'
-            ' it. Any subsequent operation that modifies structure will return'
-            ' a new object.'
+          "Unnecessary call to copy_and_update with no changes. As Structure"
+          " and its component tables are immutable, there is no need to copy"
+          " it. Any subsequent operation that modifies structure will return"
+          " a new object."
         )
       else:
         raise ValueError(
-            'When only changing global fields, prefer to use the specialised '
-            'copy_and_update_globals.'
+          "When only changing global fields, prefer to use the specialised "
+          "copy_and_update_globals."
         )
 
     def select(field, default):
       return field if field != _UNSET else default
 
     return Structure(
-        name=select(name, self.name),
-        release_date=select(release_date, self.release_date),
-        resolution=select(resolution, self.resolution),
-        structure_method=select(structure_method, self.structure_method),
-        bioassembly_data=select(bioassembly_data, self.bioassembly_data),
-        chemical_components_data=select(
-            chemical_components_data, self.chemical_components_data
-        ),
-        chains=select(chains, self._chains),
-        residues=select(residues, self._residues),
-        atoms=select(atoms, self._atoms),
-        bonds=select(bonds, self._bonds),
-        skip_validation=skip_validation,
+      name=select(name, self.name),
+      release_date=select(release_date, self.release_date),
+      resolution=select(resolution, self.resolution),
+      structure_method=select(structure_method, self.structure_method),
+      bioassembly_data=select(bioassembly_data, self.bioassembly_data),
+      chemical_components_data=select(
+        chemical_components_data, self.chemical_components_data
+      ),
+      chains=select(chains, self._chains),
+      residues=select(residues, self._residues),
+      atoms=select(atoms, self._atoms),
+      bonds=select(bonds, self._bonds),
+      skip_validation=skip_validation,
     )
 
-  def _copy_and_update(
-      self, skip_validation: bool = False, **changes: Any
-  ) -> Self:
+  def _copy_and_update(self, skip_validation: bool = False, **changes: Any) -> Self:
     """Performs a shallow copy but with specified fields updated."""
     if not changes:
       raise ValueError(
-          'Unnecessary call to copy_and_update with no changes. As Structure '
-          'and its component tables are immutable, there is no need to copy '
-          'it. Any subsequent operation that modifies structure will return a '
-          'new object.'
+        "Unnecessary call to copy_and_update with no changes. As Structure "
+        "and its component tables are immutable, there is no need to copy "
+        "it. Any subsequent operation that modifies structure will return a "
+        "new object."
       )
 
-    if 'author_naming_scheme' in changes:
+    if "author_naming_scheme" in changes:
       raise ValueError(
-          'Updating using author_naming_scheme is not supported. Update '
-          'auth_asym_id, entity_id, entity_desc fields directly in the chains '
-          'table and auth_seq_id, insertion_code in the residues table.'
+        "Updating using author_naming_scheme is not supported. Update "
+        "auth_asym_id, entity_id, entity_desc fields directly in the chains "
+        "table and auth_seq_id, insertion_code in the residues table."
       )
 
     if all(k in GLOBAL_FIELDS for k in changes):
       raise ValueError(
-          'When only changing global fields, prefer to use the specialised '
-          'copy_and_update_globals.'
+        "When only changing global fields, prefer to use the specialised "
+        "copy_and_update_globals."
       )
 
     if all(k in V2_FIELDS for k in changes):
       constructor_kwargs = {field: self[field] for field in V2_FIELDS}
       constructor_kwargs.update(changes)
-    elif any(k in ('atoms', 'residues', 'chains') for k in changes):
+    elif any(k in ("atoms", "residues", "chains") for k in changes):
       raise ValueError(
-          'Cannot specify atoms/chains/residues table changes with non-v2'
-          f' constructor params: {changes.keys()}'
+        "Cannot specify atoms/chains/residues table changes with non-v2"
+        f" constructor params: {changes.keys()}"
       )
     elif all(k in ATOM_FIELDS for k in changes):
-      if 'atom_key' not in changes:
+      if "atom_key" not in changes:
         raise ValueError(
-            'When only changing atom fields, prefer to use the specialised '
-            'copy_and_update_atoms.'
+          "When only changing atom fields, prefer to use the specialised "
+          "copy_and_update_atoms."
         )
       # Only atom fields are being updated, do that directly on the atoms table.
       updated_atoms = self._atoms.copy_and_update(
-          **{ATOM_FIELDS[k]: v for k, v in changes.items()}
+        **{ATOM_FIELDS[k]: v for k, v in changes.items()}
       )
       constructor_kwargs = {
-          field: self[field] for field in V2_FIELDS if field != 'atoms'
+        field: self[field] for field in V2_FIELDS if field != "atoms"
       }
-      constructor_kwargs['atoms'] = updated_atoms
+      constructor_kwargs["atoms"] = updated_atoms
     else:
       constructor_kwargs = {field: self[field] for field in _UPDATEABLE_FIELDS}
       constructor_kwargs.update(changes)
@@ -1248,16 +1231,16 @@ class Structure(table.Database):
     """Performs a shallow copy but with coordinates updated."""
     if coords.shape[-2:] != (self.num_atoms, 3):
       raise ValueError(
-          f'{coords.shape=} does not have last dimensions ({self.num_atoms}, 3)'
+        f"{coords.shape=} does not have last dimensions ({self.num_atoms}, 3)"
       )
     updated_atoms = self._atoms.copy_and_update_coords(coords)
     return self.copy_and_update(atoms=updated_atoms, skip_validation=True)
 
   def copy_and_update_from_res_arrays(
-      self,
-      *,
-      include_unresolved: bool = False,
-      **changes: np.ndarray,
+    self,
+    *,
+    include_unresolved: bool = False,
+    **changes: np.ndarray,
   ) -> Self:
     """Like copy_and_update but changes are arrays of length num_residues.
 
@@ -1283,10 +1266,9 @@ class Structure(table.Database):
       scattered across the atom arrays and then used to overwrite these
       fields for the returned structure.
     """
-    if not all(c in set(ATOM_FIELDS) - {'atom_key'} for c in changes):
+    if not all(c in set(ATOM_FIELDS) - {"atom_key"} for c in changes):
       raise ValueError(
-          'Changes must only be to atom fields, got changes to'
-          f' {changes.keys()}'
+        f"Changes must only be to atom fields, got changes to {changes.keys()}"
       )
 
     num_residues = self.num_residues(count_unresolved=include_unresolved)
@@ -1294,8 +1276,8 @@ class Structure(table.Database):
     for field_name, new_values in changes.items():
       if len(new_values) != num_residues:
         raise ValueError(
-            f'{field_name} array of length {len(new_values)} does not match '
-            f'{num_residues=} - is include_unresolved set correctly?'
+          f"{field_name} array of length {len(new_values)} does not match "
+          f"{num_residues=} - is include_unresolved set correctly?"
         )
 
     # We cannot assume that atom_table.res_keys are the relevant indices of the
@@ -1313,25 +1295,23 @@ class Structure(table.Database):
       value_by_key = dict(zip(target_keys, new_values, strict=True))
       # pylint: disable=cell-var-from-loop
       new_atom_columns[field_name] = np.vectorize(lambda x: value_by_key[x])(
-          self.atoms_table.res_key
+        self.atoms_table.res_key
       )
       # pylint: enable=cell-var-from-loop
 
     return self.copy_and_update_atoms(**new_atom_columns)
 
   def copy_and_update_globals(
-      self,
-      *,
-      name: str | Literal[_UNSET] = _UNSET,
-      release_date: datetime.date | Literal[_UNSET] | None = _UNSET,
-      resolution: float | Literal[_UNSET] | None = _UNSET,
-      structure_method: str | Literal[_UNSET] | None = _UNSET,
-      bioassembly_data: (
-          bioassemblies.BioassemblyData | Literal[_UNSET] | None
-      ) = _UNSET,
-      chemical_components_data: (
-          struc_chem_comps.ChemicalComponentsData | Literal[_UNSET] | None
-      ) = _UNSET,
+    self,
+    *,
+    name: str | Literal[_UNSET] = _UNSET,
+    release_date: datetime.date | Literal[_UNSET] | None = _UNSET,
+    resolution: float | Literal[_UNSET] | None = _UNSET,
+    structure_method: str | Literal[_UNSET] | None = _UNSET,
+    bioassembly_data: (bioassemblies.BioassemblyData | Literal[_UNSET] | None) = _UNSET,
+    chemical_components_data: (
+      struc_chem_comps.ChemicalComponentsData | Literal[_UNSET] | None
+    ) = _UNSET,
   ) -> Self:
     """Returns a shallow copy with the global columns updated."""
 
@@ -1346,80 +1326,74 @@ class Structure(table.Database):
     chem_data = select(chemical_components_data, self.chemical_components_data)
 
     return Structure(
-        name=name,
-        release_date=release_date,
-        resolution=resolution,
-        structure_method=structure_method,
-        bioassembly_data=bioassembly_data,
-        chemical_components_data=chem_data,
-        atoms=self._atoms,
-        residues=self._residues,
-        chains=self._chains,
-        bonds=self._bonds,
+      name=name,
+      release_date=release_date,
+      resolution=resolution,
+      structure_method=structure_method,
+      bioassembly_data=bioassembly_data,
+      chemical_components_data=chem_data,
+      atoms=self._atoms,
+      residues=self._residues,
+      chains=self._chains,
+      bonds=self._bonds,
     )
 
   def copy_and_update_atoms(
-      self,
-      *,
-      atom_name: np.ndarray | None = None,
-      atom_element: np.ndarray | None = None,
-      atom_x: np.ndarray | None = None,
-      atom_y: np.ndarray | None = None,
-      atom_z: np.ndarray | None = None,
-      atom_b_factor: np.ndarray | None = None,
-      atom_occupancy: np.ndarray | None = None,
+    self,
+    *,
+    atom_name: np.ndarray | None = None,
+    atom_element: np.ndarray | None = None,
+    atom_x: np.ndarray | None = None,
+    atom_y: np.ndarray | None = None,
+    atom_z: np.ndarray | None = None,
+    atom_b_factor: np.ndarray | None = None,
+    atom_occupancy: np.ndarray | None = None,
   ) -> Self:
     """Returns a shallow copy with the atoms table updated."""
     new_atoms = structure_tables.Atoms(
-        key=self._atoms.key,
-        res_key=self._atoms.res_key,
-        chain_key=self._atoms.chain_key,
-        name=atom_name if atom_name is not None else self.atom_name,
-        element=atom_element if atom_element is not None else self.atom_element,
-        x=atom_x if atom_x is not None else self.atom_x,
-        y=atom_y if atom_y is not None else self.atom_y,
-        z=atom_z if atom_z is not None else self.atom_z,
-        b_factor=(
-            atom_b_factor if atom_b_factor is not None else self.atom_b_factor
-        ),
-        occupancy=(
-            atom_occupancy
-            if atom_occupancy is not None
-            else self.atom_occupancy
-        ),
+      key=self._atoms.key,
+      res_key=self._atoms.res_key,
+      chain_key=self._atoms.chain_key,
+      name=atom_name if atom_name is not None else self.atom_name,
+      element=atom_element if atom_element is not None else self.atom_element,
+      x=atom_x if atom_x is not None else self.atom_x,
+      y=atom_y if atom_y is not None else self.atom_y,
+      z=atom_z if atom_z is not None else self.atom_z,
+      b_factor=(atom_b_factor if atom_b_factor is not None else self.atom_b_factor),
+      occupancy=(atom_occupancy if atom_occupancy is not None else self.atom_occupancy),
     )
     return self.copy_and_update(atoms=new_atoms)
 
   def copy_and_update_residues(
-      self,
-      *,
-      res_id: np.ndarray | None = None,
-      res_name: np.ndarray | None = None,
-      res_auth_seq_id: np.ndarray | None = None,
-      res_insertion_code: np.ndarray | None = None,
+    self,
+    *,
+    res_id: np.ndarray | None = None,
+    res_name: np.ndarray | None = None,
+    res_auth_seq_id: np.ndarray | None = None,
+    res_insertion_code: np.ndarray | None = None,
   ) -> Self:
     """Returns a shallow copy with the residues table updated."""
     new_residues = structure_tables.Residues(
-        key=self._residues.key,
-        chain_key=self._residues.chain_key,
-        id=res_id if res_id is not None else self._residues.id,
-        name=res_name if res_name is not None else self._residues.name,
-        auth_seq_id=res_auth_seq_id
-        if res_auth_seq_id is not None
-        else self._residues.auth_seq_id,
-        insertion_code=res_insertion_code
-        if res_insertion_code is not None
-        else self._residues.insertion_code,
+      key=self._residues.key,
+      chain_key=self._residues.chain_key,
+      id=res_id if res_id is not None else self._residues.id,
+      name=res_name if res_name is not None else self._residues.name,
+      auth_seq_id=res_auth_seq_id
+      if res_auth_seq_id is not None
+      else self._residues.auth_seq_id,
+      insertion_code=res_insertion_code
+      if res_insertion_code is not None
+      else self._residues.insertion_code,
     )
     return self.copy_and_update(residues=new_residues)
 
   def _cascade_delete(
-      self,
-      *,
-      chains: structure_tables.Chains | None = None,
-      residues: structure_tables.Residues | None = None,
-      atoms: structure_tables.Atoms | None = None,
-      bonds: structure_tables.Bonds | None = None,
+    self,
+    *,
+    chains: structure_tables.Chains | None = None,
+    residues: structure_tables.Residues | None = None,
+    atoms: structure_tables.Atoms | None = None,
+    bonds: structure_tables.Bonds | None = None,
   ) -> StructureTables:
     """Performs a cascade delete operation on the structure's tables.
 
@@ -1464,18 +1438,16 @@ class Structure(table.Database):
         atoms_unchanged = False
     if not atoms_unchanged:
       bonds = bonds.restrict_to_atoms(atoms.key)
-    return StructureTables(
-        chains=chains, residues=residues, atoms=atoms, bonds=bonds
-    )
+    return StructureTables(chains=chains, residues=residues, atoms=atoms, bonds=bonds)
 
   def filter(
-      self,
-      mask: np.ndarray | None = None,
-      *,
-      apply_per_element: bool = False,
-      invert: bool = False,
-      cascade_delete: CascadeDelete = CascadeDelete.CHAINS,
-      **predicate_by_field_name: table.FilterPredicate,
+    self,
+    mask: np.ndarray | None = None,
+    *,
+    apply_per_element: bool = False,
+    invert: bool = False,
+    cascade_delete: CascadeDelete = CascadeDelete.CHAINS,
+    **predicate_by_field_name: table.FilterPredicate,
   ) -> Self:
     """Filters the structure by field values and returns a new structure.
 
@@ -1546,19 +1518,19 @@ class Structure(table.Database):
       ValueError: If mask is provided and is not a bool array with shape
         (num_atoms,).
     """
-    chain_predicates, res_predicates, atom_predicates = (
-        _unpack_filter_predicates(predicate_by_field_name)
+    chain_predicates, res_predicates, atom_predicates = _unpack_filter_predicates(
+      predicate_by_field_name
     )
     # Get boolean masks for each table. These are None if none of the filter
     # parameters affect the table in question.
     chain_mask = self._chains.make_filter_mask(
-        **chain_predicates, apply_per_element=apply_per_element
+      **chain_predicates, apply_per_element=apply_per_element
     )
     res_mask = self._residues.make_filter_mask(
-        **res_predicates, apply_per_element=apply_per_element
+      **res_predicates, apply_per_element=apply_per_element
     )
     atom_mask = self._atoms.make_filter_mask(
-        mask, **atom_predicates, apply_per_element=apply_per_element
+      mask, **atom_predicates, apply_per_element=apply_per_element
     )
     if atom_mask is None:
       atom_mask = np.ones((self._atoms.size,), dtype=bool)
@@ -1566,14 +1538,14 @@ class Structure(table.Database):
     # Remove atoms that belong to filtered out chains.
     if chain_mask is not None:
       atom_chain_mask = membership.isin(
-          self._atoms.chain_key, set(self._chains.key[chain_mask])
+        self._atoms.chain_key, set(self._chains.key[chain_mask])
       )
       np.logical_and(atom_mask, atom_chain_mask, out=atom_mask)
 
     # Remove atoms that belong to filtered out residues.
     if res_mask is not None:
       atom_res_mask = membership.isin(
-          self._atoms.res_key, set(self._residues.key[res_mask])
+        self._atoms.res_key, set(self._residues.key[res_mask])
       )
       np.logical_and(atom_mask, atom_res_mask, out=atom_mask)
 
@@ -1582,46 +1554,40 @@ class Structure(table.Database):
     if cascade_delete == CascadeDelete.NONE and np.all(final_atom_mask):
       return self  # Shortcut: The filter is a no-op, so just return itself.
 
-    filtered_atoms = typing.cast(
-        structure_tables.Atoms, self._atoms[final_atom_mask]
-    )
+    filtered_atoms = typing.cast(structure_tables.Atoms, self._atoms[final_atom_mask])
 
     match cascade_delete:
       case CascadeDelete.FULL:
-        nonempty_residues_mask = np.isin(
-            self._residues.key, filtered_atoms.res_key
-        )
+        nonempty_residues_mask = np.isin(self._residues.key, filtered_atoms.res_key)
         filtered_residues = self._residues[nonempty_residues_mask]
-        nonempty_chain_mask = np.isin(
-            self._chains.key, filtered_atoms.chain_key
-        )
+        nonempty_chain_mask = np.isin(self._chains.key, filtered_atoms.chain_key)
         filtered_chains = self._chains[nonempty_chain_mask]
         updated_tables = self._cascade_delete(
-            chains=filtered_chains,
-            residues=filtered_residues,
-            atoms=filtered_atoms,
+          chains=filtered_chains,
+          residues=filtered_residues,
+          atoms=filtered_atoms,
         )
       case CascadeDelete.CHAINS:
         # To match v1 behavior we remove chains that have no atoms remaining,
         # and we remove residues in those chains.
         # NB we do not remove empty residues.
         nonempty_chain_mask = membership.isin(
-            self._chains.key, set(filtered_atoms.chain_key)
+          self._chains.key, set(filtered_atoms.chain_key)
         )
         filtered_chains = self._chains[nonempty_chain_mask]
         updated_tables = self._cascade_delete(
-            chains=filtered_chains, atoms=filtered_atoms
+          chains=filtered_chains, atoms=filtered_atoms
         )
       case CascadeDelete.NONE:
         updated_tables = self._cascade_delete(atoms=filtered_atoms)
       case _:
-        raise ValueError(f'Unknown cascade_delete behaviour: {cascade_delete}')
+        raise ValueError(f"Unknown cascade_delete behaviour: {cascade_delete}")
     return self.copy_and_update(
-        chains=updated_tables.chains,
-        residues=updated_tables.residues,
-        atoms=updated_tables.atoms,
-        bonds=updated_tables.bonds,
-        skip_validation=True,
+      chains=updated_tables.chains,
+      residues=updated_tables.residues,
+      atoms=updated_tables.atoms,
+      bonds=updated_tables.bonds,
+      skip_validation=True,
     )
 
   def filter_out(self, *args, **kwargs) -> Self:
@@ -1629,14 +1595,14 @@ class Structure(table.Database):
     return self.filter(*args, invert=True, **kwargs)
 
   def filter_to_entity_type(
-      self,
-      *,
-      protein: bool = False,
-      rna: bool = False,
-      dna: bool = False,
-      dna_rna_hybrid: bool = False,
-      ligand: bool = False,
-      water: bool = False,
+    self,
+    *,
+    protein: bool = False,
+    rna: bool = False,
+    dna: bool = False,
+    dna_rna_hybrid: bool = False,
+    ligand: bool = False,
+    water: bool = False,
   ) -> Self:
     """Filters the structure to only include the selected entity types.
 
@@ -1670,7 +1636,7 @@ class Structure(table.Database):
     return self.filter(chain_type=include_types)
 
   def get_stoichiometry(
-      self, *, fix_non_standard_polymer_res: bool = False
+    self, *, fix_non_standard_polymer_res: bool = False
   ) -> Sequence[int]:
     """Returns the structure's stoichiometry using chain_res_name_sequence.
 
@@ -1690,16 +1656,16 @@ class Structure(table.Database):
       will return [3, 2].
     """
     filtered = self.filter_to_entity_type(
-        protein=True,
-        rna=True,
-        dna=True,
-        dna_rna_hybrid=True,
-        ligand=True,
-        water=False,
+      protein=True,
+      rna=True,
+      dna=True,
+      dna_rna_hybrid=True,
+      ligand=True,
+      water=False,
     )
     seqs = filtered.chain_res_name_sequence(
-        include_missing_residues=True,
-        fix_non_standard_polymer_res=fix_non_standard_polymer_res,
+      include_missing_residues=True,
+      fix_non_standard_polymer_res=fix_non_standard_polymer_res,
     )
 
     unique_seq_counts = collections.Counter(seqs.values())
@@ -1708,7 +1674,7 @@ class Structure(table.Database):
   def without_hydrogen(self) -> Self:
     """Returns the structure without hydrogen atoms."""
     return self.filter(
-        np.logical_and(self._atoms.element != 'H', self._atoms.element != 'D')
+      np.logical_and(self._atoms.element != "H", self._atoms.element != "D")
     )
 
   def without_terminal_oxygens(self) -> Self:
@@ -1717,36 +1683,36 @@ class Structure(table.Database):
     for chain_type, atom_name in mmcif_names.TERMINAL_OXYGENS.items():
       chain_keys = self._chains.key[self._chains.type == chain_type]
       chain_atom_filter = np.logical_and(
-          self._atoms.name == atom_name,
-          np.isin(self._atoms.chain_key, chain_keys),
+        self._atoms.name == atom_name,
+        np.isin(self._atoms.chain_key, chain_keys),
       )
       np.logical_or(
-          terminal_oxygen_filter, chain_atom_filter, out=terminal_oxygen_filter
+        terminal_oxygen_filter, chain_atom_filter, out=terminal_oxygen_filter
       )
     return self.filter_out(terminal_oxygen_filter)
 
   def reset_author_naming_scheme(self) -> Self:
     """Remove author chain/residue ids, entity info and use internal ids."""
     new_chains = structure_tables.Chains(
-        key=self._chains.key,
-        id=self._chains.id,
-        type=self._chains.type,
-        auth_asym_id=self._chains.id,
-        entity_id=np.arange(1, self.num_chains + 1).astype(str).astype(object),
-        entity_desc=np.full(self.num_chains, '.', dtype=object),
+      key=self._chains.key,
+      id=self._chains.id,
+      type=self._chains.type,
+      auth_asym_id=self._chains.id,
+      entity_id=np.arange(1, self.num_chains + 1).astype(str).astype(object),
+      entity_desc=np.full(self.num_chains, ".", dtype=object),
     )
     new_residues = structure_tables.Residues(
-        key=self._residues.key,
-        chain_key=self._residues.chain_key,
-        id=self._residues.id,
-        name=self._residues.name,
-        auth_seq_id=self._residues.id.astype(str).astype(object),
-        insertion_code=np.full(
-            self.num_residues(count_unresolved=True), '?', dtype=object
-        ),
+      key=self._residues.key,
+      chain_key=self._residues.chain_key,
+      id=self._residues.id,
+      name=self._residues.name,
+      auth_seq_id=self._residues.id.astype(str).astype(object),
+      insertion_code=np.full(
+        self.num_residues(count_unresolved=True), "?", dtype=object
+      ),
     )
     return self.copy_and_update(
-        chains=new_chains, residues=new_residues, skip_validation=True
+      chains=new_chains, residues=new_residues, skip_validation=True
     )
 
   def filter_residues(self, res_mask: np.ndarray) -> Self:
@@ -1754,18 +1720,16 @@ class Structure(table.Database):
     required_shape = (self.num_residues(count_unresolved=False),)
     if res_mask.shape != required_shape:
       raise ValueError(
-          f'res_mask must have shape {required_shape}. Got: {res_mask.shape}.'
+        f"res_mask must have shape {required_shape}. Got: {res_mask.shape}."
       )
     if res_mask.dtype != bool:
-      raise ValueError(f'res_mask must have dtype bool. Got: {res_mask.dtype}.')
+      raise ValueError(f"res_mask must have dtype bool. Got: {res_mask.dtype}.")
 
     filtered_residues = self.present_residues.filter(res_mask)
     atom_mask = np.isin(self._atoms.res_key, filtered_residues.key)
     return self.filter(atom_mask)
 
-  def filter_coords(
-      self, coord_predicate: Callable[[np.ndarray], bool]
-  ) -> Self:
+  def filter_coords(self, coord_predicate: Callable[[np.ndarray], bool]) -> Self:
     """Filter a structure's atoms by a function of their coordinates.
 
     Args:
@@ -1780,19 +1744,17 @@ class Structure(table.Database):
     """
     coords = self.coords
     if coords.ndim != 2 or coords.shape[-1] != 3:
-      raise ValueError(
-          f'coords should have shape (num_atom, 3). Got {coords.shape}.'
-      )
-    mask = np.vectorize(coord_predicate, signature='(n)->()')(coords)
+      raise ValueError(f"coords should have shape (num_atom, 3). Got {coords.shape}.")
+    mask = np.vectorize(coord_predicate, signature="(n)->()")(coords)
     # This use of _apply_atom_index_array is safe because a boolean mask is
     # used, which means the chain/residue/atom ordering will stay unchanged.
     return self._apply_atom_index_array(mask, skip_validation=True)
 
   def filter_polymers_to_single_atom_per_res(
-      self,
-      representative_atom_by_chain_type: Mapping[
-          str, str
-      ] = mmcif_names.RESIDUE_REPRESENTATIVE_ATOMS,
+    self,
+    representative_atom_by_chain_type: Mapping[
+      str, str
+    ] = mmcif_names.RESIDUE_REPRESENTATIVE_ATOMS,
   ) -> Self:
     """Filter to one representative atom per polymer residue, ligands unchanged.
 
@@ -1806,22 +1768,20 @@ class Structure(table.Database):
       present.
     """
     polymer_chain_keys = self._chains.key[
-        string_array.isin(
-            self._chains.type, set(representative_atom_by_chain_type)
-        )
+      string_array.isin(self._chains.type, set(representative_atom_by_chain_type))
     ]
     polymer_atoms_mask = np.isin(self._atoms.chain_key, polymer_chain_keys)
 
     wanted_atom_by_chain_key = {
-        chain_key: representative_atom_by_chain_type.get(chain_type, None)
-        for chain_key, chain_type in zip(self._chains.key, self._chains.type)
+      chain_key: representative_atom_by_chain_type.get(chain_type, None)
+      for chain_key, chain_type in zip(self._chains.key, self._chains.type)
     }
     wanted_atoms = string_array.remap(
-        self._atoms.chain_key.astype(object), mapping=wanted_atom_by_chain_key
+      self._atoms.chain_key.astype(object), mapping=wanted_atom_by_chain_key
     )
 
     representative_polymer_atoms_mask = polymer_atoms_mask & (
-        wanted_atoms == self._atoms.name
+      wanted_atoms == self._atoms.name
     )
 
     return self.filter(representative_polymer_atoms_mask | ~polymer_atoms_mask)
@@ -1843,17 +1803,17 @@ class Structure(table.Database):
       allowed_names = {n for n in allowed_names if n != atom_types.OXT}
 
     return self.filter_out(
-        chain_type=mmcif_names.PROTEIN_CHAIN,
-        atom_name=lambda n: string_array.isin(n, allowed_names, invert=True),
+      chain_type=mmcif_names.PROTEIN_CHAIN,
+      atom_name=lambda n: string_array.isin(n, allowed_names, invert=True),
     )
 
   def drop_non_standard_atoms(
-      self,
-      *,
-      ccd: chemical_components.Ccd,
-      drop_unk: bool,
-      drop_non_ccd: bool,
-      drop_terminal_oxygens: bool = False,
+    self,
+    *,
+    ccd: chemical_components.Ccd,
+    drop_unk: bool,
+    drop_non_ccd: bool,
+    drop_terminal_oxygens: bool = False,
   ) -> Self:
     """Drops atoms that are not in the CCD for the given residue type."""
 
@@ -1861,19 +1821,19 @@ class Structure(table.Database):
     def _keep(atom_index: int) -> bool:
       atom_name = self._atoms.name[atom_index]
       res_name = self._residues.name[
-          self._residues.index_by_key[self._atoms.res_key[atom_index]]
+        self._residues.index_by_key[self._atoms.res_key[atom_index]]
       ]
       if drop_unk and res_name in residue_names.UNKNOWN_TYPES:
         return False
       else:
         return (
-            (not drop_non_ccd and not ccd.get(res_name))
-            or atom_name in struc_chem_comps.get_res_atom_names(ccd, res_name)
-            or res_name == residue_names.UNL
+          (not drop_non_ccd and not ccd.get(res_name))
+          or atom_name in struc_chem_comps.get_res_atom_names(ccd, res_name)
+          or res_name == residue_names.UNL
         )
 
     standard_atom_mask = np.array(
-        [_keep(atom_i) for atom_i in range(self.num_atoms)], dtype=bool
+      [_keep(atom_i) for atom_i in range(self.num_atoms)], dtype=bool
     )
     standard_atoms = self.filter(mask=standard_atom_mask)
     if drop_terminal_oxygens:
@@ -1887,8 +1847,7 @@ class Structure(table.Database):
       try:
         unknown_id = residue_names.UNKNOWN_TYPES.index(self.res_name[start])
         if start + 1 == end or np.all(
-            self.res_name[start + 1 : end]
-            == residue_names.UNKNOWN_TYPES[unknown_id]
+          self.res_name[start + 1 : end] == residue_names.UNKNOWN_TYPES[unknown_id]
         ):
           unknown_sequences.append(self.chain_id[start])
       except ValueError:
@@ -1896,11 +1855,9 @@ class Structure(table.Database):
     return unknown_sequences
 
   def add_bonds(
-      self,
-      bonded_atom_pairs: Sequence[
-          tuple[tuple[str, int, str], tuple[str, int, str]],
-      ],
-      bond_type: str | None = None,
+    self,
+    bonded_atom_pairs: Sequence[tuple[tuple[str, int, str], tuple[str, int, str]],],
+    bond_type: str | None = None,
   ) -> Self:
     """Returns a structure with new bonds added.
 
@@ -1920,13 +1877,13 @@ class Structure(table.Database):
       old bonds. NB: bonds are not deduplicated.
     """
     atom_key_lookup: dict[tuple[str, str, None, str], int] = dict(
-        zip(self.atom_ids, self._atoms.key, strict=True)
+      zip(self.atom_ids, self._atoms.key, strict=True)
     )
 
     # iter_atoms returns a 4-tuple (chain_id, res_id, ins_code, atom_name) but
     # the insertion code is always None. It also uses string residue IDs.
     def _to_internal_res_id(
-        bonded_atom_id: tuple[str, int, str],
+      bonded_atom_id: tuple[str, int, str],
     ) -> tuple[str, str, None, str]:
       return bonded_atom_id[0], str(bonded_atom_id[1]), None, bonded_atom_id[2]
 
@@ -1939,7 +1896,7 @@ class Structure(table.Database):
     bonds_key = np.arange(num_bonds, dtype=np.int64)
     from_atom_key = np.array(from_atom_key, dtype=np.int64)
     dest_atom_key = np.array(dest_atom_key, dtype=np.int64)
-    all_unk_col = np.array(['?'] * num_bonds, dtype=object)
+    all_unk_col = np.array(["?"] * num_bonds, dtype=object)
     if bond_type is None:
       bond_type_col = all_unk_col
     else:
@@ -1947,15 +1904,11 @@ class Structure(table.Database):
 
     max_key = -1 if not self._bonds.size else np.max(self._bonds.key)
     new_bonds = structure_tables.Bonds(
-        key=np.concatenate([self._bonds.key, bonds_key + max_key + 1]),
-        from_atom_key=np.concatenate(
-            [self._bonds.from_atom_key, from_atom_key]
-        ),
-        dest_atom_key=np.concatenate(
-            [self._bonds.dest_atom_key, dest_atom_key]
-        ),
-        type=np.concatenate([self._bonds.type, bond_type_col]),
-        role=np.concatenate([self._bonds.role, all_unk_col]),
+      key=np.concatenate([self._bonds.key, bonds_key + max_key + 1]),
+      from_atom_key=np.concatenate([self._bonds.from_atom_key, from_atom_key]),
+      dest_atom_key=np.concatenate([self._bonds.dest_atom_key, dest_atom_key]),
+      type=np.concatenate([self._bonds.type, bond_type_col]),
+      role=np.concatenate([self._bonds.role, all_unk_col]),
     )
     return self.copy_and_update(bonds=new_bonds)
 
@@ -1965,54 +1918,52 @@ class Structure(table.Database):
     return np.stack([self._atoms.x, self._atoms.y, self._atoms.z], axis=-1)
 
   def chain_single_letter_sequence(
-      self, include_missing_residues: bool = True
+    self, include_missing_residues: bool = True
   ) -> Mapping[str, str]:
     """Returns a mapping from chain ID to a single letter residue sequence.
 
     Args:
       include_missing_residues: Whether to include residues that have no atoms.
     """
-    res_table = (
-        self._residues if include_missing_residues else self.present_residues
-    )
+    res_table = self._residues if include_missing_residues else self.present_residues
     residue_chain_boundaries = _get_change_indices(res_table.chain_key)
     boundaries = self._iter_residue_ranges(
-        residue_chain_boundaries,
-        count_unresolved=include_missing_residues,
+      residue_chain_boundaries,
+      count_unresolved=include_missing_residues,
     )
     chain_keys = res_table.chain_key[residue_chain_boundaries]
-    chain_ids = self._chains.apply_array_to_column('id', chain_keys)
-    chain_types = self._chains.apply_array_to_column('type', chain_keys)
+    chain_ids = self._chains.apply_array_to_column("id", chain_keys)
+    chain_types = self._chains.apply_array_to_column("type", chain_keys)
     chain_seqs = {}
     for idx, (start, end) in enumerate(boundaries):
       chain_id = chain_ids[idx]
       chain_type = chain_types[idx]
       chain_res = res_table.name[start:end]
       if chain_type in mmcif_names.PEPTIDE_CHAIN_TYPES:
-        unknown_default = 'X'
+        unknown_default = "X"
       elif chain_type in mmcif_names.NUCLEIC_ACID_CHAIN_TYPES:
-        unknown_default = 'N'
+        unknown_default = "N"
       else:
-        chain_seqs[chain_id] = 'X' * chain_res.size
+        chain_seqs[chain_id] = "X" * chain_res.size
         continue
 
       chain_res = string_array.remap(
-          chain_res,
-          mapping=residue_names.CCD_NAME_TO_ONE_LETTER,
-          inplace=False,
-          default_value=unknown_default,
+        chain_res,
+        mapping=residue_names.CCD_NAME_TO_ONE_LETTER,
+        inplace=False,
+        default_value=unknown_default,
       )
-      chain_seqs[chain_id] = ''.join(chain_res.tolist())
+      chain_seqs[chain_id] = "".join(chain_res.tolist())
 
     return chain_seqs
 
   def polymer_auth_asym_id_to_label_asym_id(
-      self,
-      *,
-      protein: bool = True,
-      rna: bool = True,
-      dna: bool = True,
-      other: bool = True,
+    self,
+    *,
+    protein: bool = True,
+    rna: bool = True,
+    dna: bool = True,
+    other: bool = True,
   ) -> Mapping[str, str]:
     """Mapping from author chain ID to internal chain ID, polymers only.
 
@@ -2053,37 +2004,36 @@ class Structure(table.Database):
       allowed_types.add(mmcif_names.DNA_CHAIN)
     if other:
       non_standard_chain_types = (
-          mmcif_names.POLYMER_CHAIN_TYPES
-          - mmcif_names.STANDARD_POLYMER_CHAIN_TYPES
+        mmcif_names.POLYMER_CHAIN_TYPES - mmcif_names.STANDARD_POLYMER_CHAIN_TYPES
       )
       allowed_types |= non_standard_chain_types
 
     auth_asym_id_to_label_asym_id = {}
     for chain in self.iter_chains():
-      if chain['chain_type'] not in allowed_types:
+      if chain["chain_type"] not in allowed_types:
         continue
-      label_asym_id = chain['chain_id']
-      auth_asym_id = chain['chain_auth_asym_id']
+      label_asym_id = chain["chain_id"]
+      auth_asym_id = chain["chain_auth_asym_id"]
       # The mapping from author chain id to label chain id is only one-to-one if
       # we restrict our attention to polymers. But check nevertheless.
       if auth_asym_id in auth_asym_id_to_label_asym_id:
         raise ValueError(
-            f'Author chain ID "{auth_asym_id}" does not have a unique mapping '
-            f'to internal chain ID "{label_asym_id}", it is already mapped to '
-            f'"{auth_asym_id_to_label_asym_id[auth_asym_id]}".'
+          f'Author chain ID "{auth_asym_id}" does not have a unique mapping '
+          f'to internal chain ID "{label_asym_id}", it is already mapped to '
+          f'"{auth_asym_id_to_label_asym_id[auth_asym_id]}".'
         )
       auth_asym_id_to_label_asym_id[auth_asym_id] = label_asym_id
 
     return auth_asym_id_to_label_asym_id
 
   def polymer_author_chain_single_letter_sequence(
-      self,
-      *,
-      include_missing_residues: bool = True,
-      protein: bool = True,
-      rna: bool = True,
-      dna: bool = True,
-      other: bool = True,
+    self,
+    *,
+    include_missing_residues: bool = True,
+    protein: bool = True,
+    rna: bool = True,
+    dna: bool = True,
+    other: bool = True,
   ) -> Mapping[str, str]:
     """Mapping from author chain ID to single letter aa sequence, polymers only.
 
@@ -2110,21 +2060,18 @@ class Structure(table.Database):
         not a bijection for polymer chains.
     """
     label_chain_id_to_seq = self.chain_single_letter_sequence(
-        include_missing_residues=include_missing_residues
+      include_missing_residues=include_missing_residues
     )
     auth_to_label = self.polymer_auth_asym_id_to_label_asym_id(
-        protein=protein, rna=rna, dna=dna, other=other
+      protein=protein, rna=rna, dna=dna, other=other
     )
-    return {
-        auth: label_chain_id_to_seq[label]
-        for auth, label in auth_to_label.items()
-    }
+    return {auth: label_chain_id_to_seq[label] for auth, label in auth_to_label.items()}
 
   def chain_res_name_sequence(
-      self,
-      *,
-      include_missing_residues: bool = True,
-      fix_non_standard_polymer_res: bool = False,
+    self,
+    *,
+    include_missing_residues: bool = True,
+    fix_non_standard_polymer_res: bool = False,
   ) -> Mapping[str, Sequence[str]]:
     """A mapping from internal chain ID to a sequence of residue names.
 
@@ -2141,29 +2088,22 @@ class Structure(table.Database):
     Returns:
       A mapping from (internal) chain IDs to a sequence of residue names.
     """
-    res_table = (
-        self._residues if include_missing_residues else self.present_residues
-    )
+    res_table = self._residues if include_missing_residues else self.present_residues
     residue_chain_boundaries = _get_change_indices(res_table.chain_key)
     boundaries = self._iter_residue_ranges(
-        residue_chain_boundaries, count_unresolved=include_missing_residues
+      residue_chain_boundaries, count_unresolved=include_missing_residues
     )
     chain_keys = res_table.chain_key[residue_chain_boundaries]
-    chain_ids = self._chains.apply_array_to_column('id', chain_keys)
-    chain_types = self._chains.apply_array_to_column('type', chain_keys)
+    chain_ids = self._chains.apply_array_to_column("id", chain_keys)
+    chain_types = self._chains.apply_array_to_column("type", chain_keys)
     chain_seqs = {}
     for idx, (start, end) in enumerate(boundaries):
       chain_id = chain_ids[idx]
       chain_type = chain_types[idx]
       chain_res = res_table.name[start:end]
-      if (
-          fix_non_standard_polymer_res
-          and chain_type in mmcif_names.POLYMER_CHAIN_TYPES
-      ):
+      if fix_non_standard_polymer_res and chain_type in mmcif_names.POLYMER_CHAIN_TYPES:
         chain_seqs[chain_id] = tuple(
-            fix_non_standard_polymer_residues(
-                res_names=chain_res, chain_type=chain_type
-            )
+          fix_non_standard_polymer_residues(res_names=chain_res, chain_type=chain_type)
         )
       else:
         chain_seqs[chain_id] = tuple(chain_res)
@@ -2171,10 +2111,10 @@ class Structure(table.Database):
     return chain_seqs
 
   def fix_non_standard_polymer_res(
-      self,
-      res_mapper: Callable[
-          [np.ndarray, str], np.ndarray
-      ] = fix_non_standard_polymer_residues,
+    self,
+    res_mapper: Callable[
+      [np.ndarray, str], np.ndarray
+    ] = fix_non_standard_polymer_residues,
   ) -> Self:
     """Replaces non-standard polymer residues with standard alternatives or UNK.
 
@@ -2201,14 +2141,12 @@ class Structure(table.Database):
       chain_type = self._chains.type[self._chains.index_by_key[chain_key]]
       if chain_type not in mmcif_names.POLYMER_CHAIN_TYPES:
         continue  # We don't need to change anything for non-polymers.
-      fixed_res_name[start:end] = res_mapper(
-          fixed_res_name[start:end], chain_type
-      )
+      fixed_res_name[start:end] = res_mapper(fixed_res_name[start:end], chain_type)
     fixed_residues = self._residues.copy_and_update(name=fixed_res_name)
     return self.copy_and_update(residues=fixed_residues, skip_validation=True)
 
   @property
-  def slice_leading_dims(self) -> '_LeadingDimSlice':
+  def slice_leading_dims(self) -> "_LeadingDimSlice":
     """Used to create a new Structure by slicing into the leading dimensions.
 
     Example usage 1:
@@ -2252,14 +2190,14 @@ class Structure(table.Database):
     ndim = self._atoms.ndim
     if not (-ndim <= axis < ndim):
       raise IndexError(
-          f'{axis=} is out of range for atom coordinate fields with {ndim=}.'
+        f"{axis=} is out of range for atom coordinate fields with {ndim=}."
       )
     elif axis < 0:
       axis += ndim
     if axis == ndim - 1:
       raise IndexError(
-          'axis must refer to one of the leading dimensions, not the final '
-          f'dimension. The atom fields have {ndim=} and {axis=} was specified.'
+        "axis must refer to one of the leading dimensions, not the final "
+        f"dimension. The atom fields have {ndim=} and {axis=} was specified."
       )
     unstacked = []
     leading_dim_slice = self.slice_leading_dims  # Compute once here.
@@ -2299,18 +2237,18 @@ class Structure(table.Database):
     """
     if self._atoms.ndim != 2:
       raise ValueError(
-          'Coordinate field tensor must have 2 dimensions: '
-          f'(num_states, num_atoms), got {self._atoms.ndim}.'
+        "Coordinate field tensor must have 2 dimensions: "
+        f"(num_states, num_atoms), got {self._atoms.ndim}."
       )
     return concat(self.unstack(axis=0))
 
   def merge_chains(
-      self,
-      *,
-      chain_groups: Sequence[Sequence[str]],
-      chain_group_ids: Sequence[str] | None = None,
-      chain_group_types: Sequence[str] | None = None,
-      chain_group_entity_ids: Sequence[str] | None = None,
+    self,
+    *,
+    chain_groups: Sequence[Sequence[str]],
+    chain_group_ids: Sequence[str] | None = None,
+    chain_group_types: Sequence[str] | None = None,
+    chain_group_entity_ids: Sequence[str] | None = None,
   ) -> Self:
     """Merges chains in each group into a single chain.
 
@@ -2349,27 +2287,25 @@ class Structure(table.Database):
     """
     if chain_group_ids and len(chain_group_ids) != len(chain_groups):
       raise ValueError(
-          'chain_group_ids must the same length as chain_groups: '
-          f'{len(chain_group_ids)=} != {len(chain_groups)=}'
+        "chain_group_ids must the same length as chain_groups: "
+        f"{len(chain_group_ids)=} != {len(chain_groups)=}"
       )
     if chain_group_types and len(chain_group_types) != len(chain_groups):
       raise ValueError(
-          'chain_group_types must the same length as chain_groups: '
-          f'{len(chain_group_types)=} != {len(chain_groups)=}'
+        "chain_group_types must the same length as chain_groups: "
+        f"{len(chain_group_types)=} != {len(chain_groups)=}"
       )
-    if chain_group_entity_ids and len(chain_group_entity_ids) != len(
-        chain_groups
-    ):
+    if chain_group_entity_ids and len(chain_group_entity_ids) != len(chain_groups):
       raise ValueError(
-          'chain_group_entity_ids must the same length as chain_groups: '
-          f'{len(chain_group_entity_ids)=} != {len(chain_groups)=}'
+        "chain_group_entity_ids must the same length as chain_groups: "
+        f"{len(chain_group_entity_ids)=} != {len(chain_groups)=}"
       )
 
     flattened = sorted(itertools.chain.from_iterable(chain_groups))
     if flattened != sorted(self.chains):
       raise ValueError(
-          'IDs in chain groups do not match Structure chain IDs: '
-          f'{chain_groups=}, chains={self.chains}'
+        "IDs in chain groups do not match Structure chain IDs: "
+        f"{chain_groups=}, chains={self.chains}"
       )
 
     new_chain_key_by_chain_id = {}
@@ -2380,7 +2316,7 @@ class Structure(table.Database):
     chain_key_remap = {}
     new_chain_type_by_chain_key = {}
     for old_chain_key, old_chain_id, old_chain_type in zip(
-        self._chains.key, self._chains.id, self._chains.type
+      self._chains.key, self._chains.id, self._chains.type
     ):
       new_chain_key = new_chain_key_by_chain_id[old_chain_id]
       chain_key_remap[old_chain_key] = new_chain_key
@@ -2390,11 +2326,11 @@ class Structure(table.Database):
       elif not chain_group_types:
         if new_chain_type_by_chain_key[new_chain_key] != old_chain_type:
           bad_types = [
-              f'{cid}: {self._chains.type[np.where(self._chains.id == cid)][0]}'
-              for cid in chain_groups[new_chain_key]
+            f"{cid}: {self._chains.type[np.where(self._chains.id == cid)][0]}"
+            for cid in chain_groups[new_chain_key]
           ]
           raise ValueError(
-              'Inconsistent chain types within group:\n' + '\n'.join(bad_types)
+            "Inconsistent chain types within group:\n" + "\n".join(bad_types)
           )
 
     new_chain_key = np.arange(len(chain_groups), dtype=np.int64)
@@ -2402,60 +2338,58 @@ class Structure(table.Database):
       new_chain_id = np.array(chain_group_ids, dtype=object)
     else:
       new_chain_id = np.array(
-          [mmcif.int_id_to_str_id(k) for k in new_chain_key + 1], dtype=object
+        [mmcif.int_id_to_str_id(k) for k in new_chain_key + 1], dtype=object
       )
     if chain_group_types:
       new_chain_type = np.array(chain_group_types, dtype=object)
     else:
       new_chain_type = np.array(
-          [new_chain_type_by_chain_key[k] for k in new_chain_key], dtype=object
+        [new_chain_type_by_chain_key[k] for k in new_chain_key], dtype=object
       )
     if chain_group_entity_ids:
       new_chain_entity_id = np.array(chain_group_entity_ids, dtype=object)
     else:
-      new_chain_entity_id = np.char.mod('%d', new_chain_key + 1).astype(object)
+      new_chain_entity_id = np.char.mod("%d", new_chain_key + 1).astype(object)
     new_chains = structure_tables.Chains(
-        key=new_chain_key,
-        id=new_chain_id,
-        type=new_chain_type,
-        auth_asym_id=new_chain_id,
-        entity_id=new_chain_entity_id,
-        entity_desc=np.full(len(chain_groups), fill_value='.', dtype=object),
+      key=new_chain_key,
+      id=new_chain_id,
+      type=new_chain_type,
+      auth_asym_id=new_chain_id,
+      entity_id=new_chain_entity_id,
+      entity_desc=np.full(len(chain_groups), fill_value=".", dtype=object),
     )
 
     # Remap chain keys and sort residues to match the chain table order.
     new_residues = self._residues.copy_and_remap(chain_key=chain_key_remap)
     new_residues = new_residues.apply_index(
-        np.argsort(new_residues.chain_key, kind='stable')
+      np.argsort(new_residues.chain_key, kind="stable")
     )
     # Renumber uniquely residues in each chain.
     indices = np.arange(new_residues.chain_key.size, dtype=np.int32)
     new_res_ids = (indices + 1) - np.maximum.accumulate(
-        indices * (new_residues.chain_key != np.roll(new_residues.chain_key, 1))
+      indices * (new_residues.chain_key != np.roll(new_residues.chain_key, 1))
     )
     new_residues = new_residues.copy_and_update(
-        id=new_res_ids,
-        auth_seq_id=np.char.mod('%d', new_res_ids).astype(object),
+      id=new_res_ids,
+      auth_seq_id=np.char.mod("%d", new_res_ids).astype(object),
     )
 
     # Remap chain keys and sort atoms to match the chain table order.
     new_atoms = self._atoms.copy_and_remap(chain_key=chain_key_remap)
-    new_atoms = new_atoms.apply_index(
-        np.argsort(new_atoms.chain_key, kind='stable')
-    )
+    new_atoms = new_atoms.apply_index(np.argsort(new_atoms.chain_key, kind="stable"))
 
     return self.copy_and_update(
-        chains=new_chains,
-        residues=new_residues,
-        atoms=new_atoms,
-        bonds=self._bonds,
+      chains=new_chains,
+      residues=new_residues,
+      atoms=new_atoms,
+      bonds=self._bonds,
     )
 
   def to_res_arrays(
-      self,
-      *,
-      include_missing_residues: bool,
-      atom_order: Mapping[str, int] = atom_types.ATOM37_ORDER,
+    self,
+    *,
+    include_missing_residues: bool,
+    atom_order: Mapping[str, int] = atom_types.ATOM37_ORDER,
   ) -> ResArrays:
     """Returns atom-level information in arrays containing a num_res dimension.
 
@@ -2484,24 +2418,24 @@ class Structure(table.Database):
 
     all_residues = None if not include_missing_residues else self.all_residues
     for i, atom in enumerate_residues(self.iter_atoms(), all_residues):
-      atom_idx = atom_order.get(atom['atom_name'])
+      atom_idx = atom_order.get(atom["atom_name"])
       if atom_idx is not None:
-        atom_positions[i, atom_idx, 0] = atom['atom_x']
-        atom_positions[i, atom_idx, 1] = atom['atom_y']
-        atom_positions[i, atom_idx, 2] = atom['atom_z']
+        atom_positions[i, atom_idx, 0] = atom["atom_x"]
+        atom_positions[i, atom_idx, 1] = atom["atom_y"]
+        atom_positions[i, atom_idx, 2] = atom["atom_z"]
         atom_mask[i, atom_idx] = 1.0
-        atom_b_factor[i, atom_idx] = atom['atom_b_factor']
-        atom_occupancy[i, atom_idx] = atom['atom_occupancy']
+        atom_b_factor[i, atom_idx] = atom["atom_b_factor"]
+        atom_occupancy[i, atom_idx] = atom["atom_occupancy"]
 
     return ResArrays(
-        atom_positions=atom_positions,
-        atom_mask=atom_mask,
-        atom_b_factor=atom_b_factor,
-        atom_occupancy=atom_occupancy,
+      atom_positions=atom_positions,
+      atom_mask=atom_mask,
+      atom_b_factor=atom_b_factor,
+      atom_occupancy=atom_occupancy,
     )
 
   def to_res_atom_lists(
-      self, *, include_missing_residues: bool
+    self, *, include_missing_residues: bool
   ) -> Sequence[Sequence[Mapping[str, Any]]]:
     """Returns list of atom dictionaries grouped by residue.
 
@@ -2549,15 +2483,15 @@ class Structure(table.Database):
     """
     if len(new_order) != len(self.chains):
       raise ValueError(
-          f'The new number of chains ({len(new_order)}) does not match the '
-          f'current number of chains ({len(self.chains)}).'
+        f"The new number of chains ({len(new_order)}) does not match the "
+        f"current number of chains ({len(self.chains)})."
       )
     new_chain_set = set(new_order)
     if len(new_chain_set) != len(new_order):
-      raise ValueError(f'The new order {new_order} contains non-unique IDs.')
+      raise ValueError(f"The new order {new_order} contains non-unique IDs.")
     if new_chain_set.symmetric_difference(set(self.chains)):
       raise ValueError(
-          f'New chain IDs {new_order} do not match the old {set(self.chains)}'
+        f"New chain IDs {new_order} do not match the old {set(self.chains)}"
       )
 
     if self.chains == tuple(new_order):
@@ -2568,21 +2502,19 @@ class Structure(table.Database):
     current_chain_index_order = np.empty(self.num_chains, dtype=np.int64)
     for index, old_chain_id in enumerate(self._chains.id):
       current_chain_index_order[index] = desired_chain_id_pos[old_chain_id]
-    chain_reorder = np.argsort(current_chain_index_order, kind='stable')
-    chain_key_map = dict(
-        zip(self._chains.key[chain_reorder], range(self.num_chains))
-    )
+    chain_reorder = np.argsort(current_chain_index_order, kind="stable")
+    chain_key_map = dict(zip(self._chains.key[chain_reorder], range(self.num_chains)))
     chains = self._chains.apply_index(chain_reorder)
     chains = chains.copy_and_remap(key=chain_key_map)
 
     # The stable sort keeps the original residue ordering within each chain.
     residues = self._residues.copy_and_remap(chain_key=chain_key_map)
-    residue_reorder = np.argsort(residues.chain_key, kind='stable')
+    residue_reorder = np.argsort(residues.chain_key, kind="stable")
     residues = residues.apply_index(residue_reorder)
 
     # The stable sort keeps the original atom ordering within each chain.
     atoms = self._atoms.copy_and_remap(chain_key=chain_key_map)
-    atoms_reorder = np.argsort(atoms.chain_key, kind='stable')
+    atoms_reorder = np.argsort(atoms.chain_key, kind="stable")
     atoms = atoms.apply_index(atoms_reorder)
 
     # Bonds unchanged - each references 2 atom keys, hence ordering not defined.
@@ -2602,12 +2534,11 @@ class Structure(table.Database):
     """
     mapped_chains = self._chains.copy_and_remap(auth_asym_id=new_id_by_old_id)
     mapped_polymer_ids = mapped_chains.filter(
-        type=mmcif_names.POLYMER_CHAIN_TYPES
+      type=mmcif_names.POLYMER_CHAIN_TYPES
     ).auth_asym_id
     if len(mapped_polymer_ids) != len(set(mapped_polymer_ids)):
       raise ValueError(
-          'The new polymer auth_asym_ids are not unique:'
-          f' {sorted(mapped_polymer_ids)}.'
+        f"The new polymer auth_asym_ids are not unique: {sorted(mapped_polymer_ids)}."
       )
     return self.copy_and_update(chains=mapped_chains, skip_validation=True)
 
@@ -2646,23 +2577,23 @@ class Structure(table.Database):
       new_bioassembly_data = None
     else:
       new_bioassembly_data = self._bioassembly_data.rename_label_asym_ids(
-          new_id_by_old_id, present_chains=set(self.present_chains.id)
+        new_id_by_old_id, present_chains=set(self.present_chains.id)
       )
 
     # Set author residue IDs to be the string version of internal residue IDs.
     new_residues = self._residues.copy_and_update(
-        auth_seq_id=self._residues.id.astype(str).astype(object)
+      auth_seq_id=self._residues.id.astype(str).astype(object)
     )
 
     new_chains = self._chains.copy_and_update(
-        id=new_chain_id, auth_asym_id=new_chain_id
+      id=new_chain_id, auth_asym_id=new_chain_id
     )
 
     return self.copy_and_update(
-        bioassembly_data=new_bioassembly_data,
-        chains=new_chains,
-        residues=new_residues,
-        skip_validation=True,
+      bioassembly_data=new_bioassembly_data,
+      chains=new_chains,
+      residues=new_residues,
+      skip_validation=True,
     )
 
   @functools.cached_property
@@ -2671,9 +2602,9 @@ class Structure(table.Database):
     return tuple(self._chains.id)
 
   def rename_res_name(
-      self,
-      res_name_map: Mapping[str, str],
-      fail_if_not_found: bool = True,
+    self,
+    res_name_map: Mapping[str, str],
+    fail_if_not_found: bool = True,
   ) -> Self:
     """Returns a copy of this structure with residues renamed.
 
@@ -2698,17 +2629,17 @@ class Structure(table.Database):
 
     if self._chemical_components_data is not None:
       chem_comp = {
-          res_name_map.get(res_name, res_name): data
-          for res_name, data in self._chemical_components_data.chem_comp.items()
+        res_name_map.get(res_name, res_name): data
+        for res_name, data in self._chemical_components_data.chem_comp.items()
       }
       new_chem_comp = struc_chem_comps.ChemicalComponentsData(chem_comp)
     else:
       new_chem_comp = None
 
     return self.copy_and_update(
-        residues=new_residues,
-        chemical_components_data=new_chem_comp,
-        skip_validation=True,
+      residues=new_residues,
+      chemical_components_data=new_chem_comp,
+      skip_validation=True,
     )
 
   def remap_res_id(self, res_id_map: Mapping[str, Mapping[int, int]]) -> Self:
@@ -2731,46 +2662,48 @@ class Structure(table.Database):
       ValueError: If residue IDs are not unique in each chain after remapping.
     """
     chain_ids = self._chains.apply_array_to_column(
-        column_name='id', arr=self._residues.chain_key
+      column_name="id", arr=self._residues.chain_key
     )
     flat_res_id_map = {}
     for chain_id, chain_res_id_map in res_id_map.items():
-      flat_res_id_map.update({
+      flat_res_id_map.update(
+        {
           (chain_id, old_res_id): new_res_id
           for old_res_id, new_res_id in chain_res_id_map.items()
-      })
+        }
+      )
 
     try:
       new_res_id = string_array.remap_multiple(
-          (chain_ids, self._residues.id), flat_res_id_map
+        (chain_ids, self._residues.id), flat_res_id_map
       )
     except KeyError as e:
       raise KeyError(
-          f'Could not find new residue ID for residue {e} in {res_id_map=}'
+        f"Could not find new residue ID for residue {e} in {res_id_map=}"
       ) from e
 
     residue_chain_boundaries = _get_change_indices(self._residues.chain_key)
     res_boundaries = self._iter_residue_ranges(
-        residue_chain_boundaries, count_unresolved=True
+      residue_chain_boundaries, count_unresolved=True
     )
     for idx, (start, end) in enumerate(res_boundaries):
       chain_id = chain_ids[idx]
       chain_res_ids = new_res_id[start:end]
       if len(chain_res_ids) != len(set(chain_res_ids)):
         raise ValueError(
-            f'New residue IDs not unique in chain {chain_id}: {chain_res_ids}'
+          f"New residue IDs not unique in chain {chain_id}: {chain_res_ids}"
         )
 
     return self.copy_and_update(
-        residues=self._residues.copy_and_update(id=new_res_id.astype(np.int32)),
-        skip_validation=True,
+      residues=self._residues.copy_and_update(id=new_res_id.astype(np.int32)),
+      skip_validation=True,
     )
 
   def rename_chains_to_match(
-      self,
-      other: 'Structure',
-      *,
-      fuzzy_match_non_standard_res: bool = True,
+    self,
+    other: "Structure",
+    *,
+    fuzzy_match_non_standard_res: bool = True,
   ) -> Self:
     """Returns a new structure with renamed chains to match another's.
 
@@ -2794,13 +2727,13 @@ class Structure(table.Database):
       match the other structure.
     """
     sequences = self.chain_res_name_sequence(
-        include_missing_residues=True,
-        fix_non_standard_polymer_res=fuzzy_match_non_standard_res,
+      include_missing_residues=True,
+      fix_non_standard_polymer_res=fuzzy_match_non_standard_res,
     )
 
     other_sequences = other.chain_res_name_sequence(
-        include_missing_residues=True,
-        fix_non_standard_polymer_res=fuzzy_match_non_standard_res,
+      include_missing_residues=True,
+      fix_non_standard_polymer_res=fuzzy_match_non_standard_res,
     )
 
     # Check that the sequences are the same.
@@ -2808,8 +2741,8 @@ class Structure(table.Database):
     other_sequence_counts = collections.Counter(other_sequences.values())
     if other_sequence_counts != sequence_counts:
       raise ValueError(
-          'The other structure does not have the same sequences\n'
-          f' other: {other_sequence_counts}\n self: {sequence_counts}'
+        "The other structure does not have the same sequences\n"
+        f" other: {other_sequence_counts}\n self: {sequence_counts}"
       )
 
     new_decoy_id_by_old_id = {}
@@ -2819,9 +2752,9 @@ class Structure(table.Database):
     for self_chain_id, self_seq in sorted(sequences.items()):
       # Find corresponding chains in the other structure.
       other_chain_id = min(
-          k
-          for k, v in other_sequences.items()
-          if v == self_seq and k not in used_chain_ids
+        k
+        for k, v in other_sequences.items()
+        if v == self_seq and k not in used_chain_ids
       )
 
       new_decoy_id_by_old_id[self_chain_id] = other_chain_id
@@ -2829,25 +2762,23 @@ class Structure(table.Database):
 
     return self.rename_chain_ids(new_decoy_id_by_old_id)
 
-  def _apply_bioassembly_transform(
-      self, transform: bioassemblies.Transform
-  ) -> Self:
+  def _apply_bioassembly_transform(self, transform: bioassemblies.Transform) -> Self:
     """Applies a bioassembly transform to this structure."""
     base_struc = self.filter(chain_id=transform.chain_ids)
     transformed_atoms = base_struc.atoms_table.copy_and_update_coords(
-        transform.apply_to_coords(base_struc.coords)
+      transform.apply_to_coords(base_struc.coords)
     )
     transformed_chains = base_struc.chains_table.copy_and_remap(
-        id=transform.chain_id_rename_map
+      id=transform.chain_id_rename_map
     )
     # Set the transformed author chain ID to match the label chain ID.
     transformed_chains = transformed_chains.copy_and_update(
-        auth_asym_id=transformed_chains.id
+      auth_asym_id=transformed_chains.id
     )
     return base_struc.copy_and_update(
-        chains=transformed_chains,
-        atoms=transformed_atoms,
-        skip_validation=True,
+      chains=transformed_chains,
+      atoms=transformed_atoms,
+      skip_validation=True,
     )
 
   def generate_bioassembly(self, assembly_id: str | None = None) -> Self:
@@ -2876,52 +2807,52 @@ class Structure(table.Database):
         return self
       else:
         raise ValueError(
-            f'Unset bioassembly_data, cannot generate assembly {assembly_id}'
+          f"Unset bioassembly_data, cannot generate assembly {assembly_id}"
         )
 
     if assembly_id is None:
       assembly_id = self._bioassembly_data.get_default_assembly_id()
 
     transformed_strucs = [
-        self._apply_bioassembly_transform(transform)
-        for transform in self._bioassembly_data.get_transforms(assembly_id)
+      self._apply_bioassembly_transform(transform)
+      for transform in self._bioassembly_data.get_transforms(assembly_id)
     ]
 
     # We don't need to assign unique chain IDs because the bioassembly
     # transform takes care of remapping chain IDs to be unique.
     concatenated = concat(
-        transformed_strucs,
-        assign_unique_chain_ids=False,
-        assign_unique_entity_ids=False,
+      transformed_strucs,
+      assign_unique_chain_ids=False,
+      assign_unique_entity_ids=False,
     )
 
     # Copy over all scalar fields (e.g. name, release date, etc.) other than
     # bioassembly_data because it relates only to the pre-transformed structure.
     return concatenated.copy_and_update_globals(
-        name=self.name,
-        release_date=self.release_date,
-        resolution=self.resolution,
-        structure_method=self.structure_method,
-        bioassembly_data=None,
-        chemical_components_data=self.chemical_components_data,
+      name=self.name,
+      release_date=self.release_date,
+      resolution=self.resolution,
+      structure_method=self.structure_method,
+      bioassembly_data=None,
+      chemical_components_data=self.chemical_components_data,
     )
 
   def _to_mmcif_header(self) -> Mapping[str, Sequence[str]]:
     raw_mmcif = collections.defaultdict(list)
-    raw_mmcif['data_'] = [self._name.replace(' ', '-')]
-    raw_mmcif['_entry.id'] = [self._name]
+    raw_mmcif["data_"] = [self._name.replace(" ", "-")]
+    raw_mmcif["_entry.id"] = [self._name]
 
     if self._release_date is not None:
-      date = [datetime.datetime.strftime(self._release_date, '%Y-%m-%d')]
-      raw_mmcif['_pdbx_audit_revision_history.revision_date'] = date
-      raw_mmcif['_pdbx_database_status.recvd_initial_deposition_date'] = date
+      date = [datetime.datetime.strftime(self._release_date, "%Y-%m-%d")]
+      raw_mmcif["_pdbx_audit_revision_history.revision_date"] = date
+      raw_mmcif["_pdbx_database_status.recvd_initial_deposition_date"] = date
 
     if self._resolution is not None:
-      raw_mmcif['_refine.ls_d_res_high'] = ['%.2f' % self._resolution]
+      raw_mmcif["_refine.ls_d_res_high"] = ["%.2f" % self._resolution]
 
     if self._structure_method is not None:
-      for method in self._structure_method.split(','):
-        raw_mmcif['_exptl.method'].append(method)
+      for method in self._structure_method.split(","):
+        raw_mmcif["_exptl.method"].append(method)
 
     if self._bioassembly_data is not None:
       raw_mmcif.update(self._bioassembly_data.to_mmcif_dict())
@@ -2932,44 +2863,40 @@ class Structure(table.Database):
 
     # Add _software table to store version number used to generate mmCIF.
     # Only required data items are used (+ _software.version).
-    raw_mmcif['_software.pdbx_ordinal'] = ['1']
-    raw_mmcif['_software.name'] = ['DeepMind Structure Class']
-    raw_mmcif['_software.version'] = [self._VERSION]
-    raw_mmcif['_software.classification'] = ['other']  # Required.
+    raw_mmcif["_software.pdbx_ordinal"] = ["1"]
+    raw_mmcif["_software.name"] = ["DeepMind Structure Class"]
+    raw_mmcif["_software.version"] = [self._VERSION]
+    raw_mmcif["_software.classification"] = ["other"]  # Required.
 
     return raw_mmcif
 
   def to_mmcif_dict(
-      self,
-      *,
-      coords_decimal_places: int = _COORDS_DECIMAL_PLACES,
+    self,
+    *,
+    coords_decimal_places: int = _COORDS_DECIMAL_PLACES,
   ) -> mmcif.Mmcif:
     """Returns an Mmcif representing the structure."""
     header = self._to_mmcif_header()
     sequence_tables = structure_tables.to_mmcif_sequence_and_entity_tables(
-        self._chains, self._residues, self._atoms.res_key
+      self._chains, self._residues, self._atoms.res_key
     )
     atom_and_bond_tables = structure_tables.to_mmcif_atom_site_and_bonds_table(
-        chains=self._chains,
-        residues=self._residues,
-        atoms=self._atoms,
-        bonds=self._bonds,
-        coords_decimal_places=coords_decimal_places,
+      chains=self._chains,
+      residues=self._residues,
+      atoms=self._atoms,
+      bonds=self._bonds,
+      coords_decimal_places=coords_decimal_places,
     )
     return mmcif.Mmcif({**header, **sequence_tables, **atom_and_bond_tables})
 
-  def to_mmcif(
-      self, *, coords_decimal_places: int = _COORDS_DECIMAL_PLACES
-  ) -> str:
+  def to_mmcif(self, *, coords_decimal_places: int = _COORDS_DECIMAL_PLACES) -> str:
     """Returns an mmCIF string representing the structure.
 
     Args:
       coords_decimal_places: The number of decimal places to keep for atom
         coordinates, including trailing zeros.
     """
-    return self.to_mmcif_dict(
-        coords_decimal_places=coords_decimal_places
-    ).to_string()
+    return self.to_mmcif_dict(coords_decimal_places=coords_decimal_places).to_string()
 
 
 class _LeadingDimSlice:
@@ -2990,13 +2917,8 @@ class _LeadingDimSlice:
     for col_name in structure_tables.Atoms.multimodel_cols:
       if (col := self._struc.atoms_table.get_column(col_name)).ndim > 1:
         sliced_col = col.__getitem__(*args, **kwargs)
-        if (
-            not sliced_col.shape
-            or sliced_col.shape[-1] != self._struc.num_atoms
-        ):
-          raise ValueError(
-              'Coordinate slice cannot change final (atom) dimension.'
-          )
+        if not sliced_col.shape or sliced_col.shape[-1] != self._struc.num_atoms:
+          raise ValueError("Coordinate slice cannot change final (atom) dimension.")
         sliced_atom_cols[col_name] = sliced_col
     sliced_atoms = self._struc.atoms_table.copy_and_update(**sliced_atom_cols)
     return self._struc.copy_and_update(atoms=sliced_atoms, skip_validation=True)
@@ -3036,7 +2958,7 @@ def stack(strucs: Sequence[Structure], axis: int = 0) -> Structure:
     ValueError: If `strucs` do not all have the same `atom_name` field.
   """
   if not strucs:
-    raise ValueError('Need at least one Structure to stack.')
+    raise ValueError("Need at least one Structure to stack.")
   struc_0, *other_strucs = strucs
   for i, struc in enumerate(other_strucs, start=1):
     # Check that every structure has the same atom name column.
@@ -3045,22 +2967,20 @@ def stack(strucs: Sequence[Structure], axis: int = 0) -> Structure:
     # such case, e.g. if these are carbon-alpha-only structures, but should
     # catch most cases.
     if np.any(struc.atoms_table.name != struc_0.atoms_table.name):
-      raise ValueError(
-          f'strucs[0] and strucs[{i}] have mismatching atom name columns.'
-      )
+      raise ValueError(f"strucs[0] and strucs[{i}] have mismatching atom name columns.")
 
   stacked_atoms = struc_0.atoms_table.copy_and_update(
-      x=np.stack([s.atoms_table.x for s in strucs], axis=axis),
-      y=np.stack([s.atoms_table.y for s in strucs], axis=axis),
-      z=np.stack([s.atoms_table.z for s in strucs], axis=axis),
-      b_factor=np.stack([s.atoms_table.b_factor for s in strucs], axis=axis),
-      occupancy=np.stack([s.atoms_table.occupancy for s in strucs], axis=axis),
+    x=np.stack([s.atoms_table.x for s in strucs], axis=axis),
+    y=np.stack([s.atoms_table.y for s in strucs], axis=axis),
+    z=np.stack([s.atoms_table.z for s in strucs], axis=axis),
+    b_factor=np.stack([s.atoms_table.b_factor for s in strucs], axis=axis),
+    occupancy=np.stack([s.atoms_table.occupancy for s in strucs], axis=axis),
   )
   return struc_0.copy_and_update(atoms=stacked_atoms, skip_validation=True)
 
 
 def _assign_unique_chain_ids(
-    strucs: Iterable[Structure],
+  strucs: Iterable[Structure],
 ) -> Sequence[Structure]:
   """Creates a sequence of `Structure` objects with unique chain IDs.
 
@@ -3094,11 +3014,11 @@ def _assign_unique_chain_ids(
 
 
 def concat(
-    strucs: Sequence[Structure],
-    *,
-    name: str | None = None,
-    assign_unique_chain_ids: bool = True,
-    assign_unique_entity_ids: bool = True,
+  strucs: Sequence[Structure],
+  *,
+  name: str | None = None,
+  assign_unique_chain_ids: bool = True,
+  assign_unique_entity_ids: bool = True,
 ) -> Structure:
   """Concatenates structures along the atom dimension.
 
@@ -3155,12 +3075,12 @@ def concat(
       `strucs` have unique chain IDs.
   """
   if not strucs:
-    raise ValueError('Need at least one Structure to concatenate.')
+    raise ValueError("Need at least one Structure to concatenate.")
 
   if assign_unique_chain_ids and not assign_unique_entity_ids:
     raise ValueError(
-        'If assign_unique_chain_ids is True, assign_unique_entity_ids must be '
-        'True as well.'
+      "If assign_unique_chain_ids is True, assign_unique_entity_ids must be "
+      "True as well."
     )
 
   if assign_unique_chain_ids:
@@ -3172,43 +3092,45 @@ def concat(
     if not assign_unique_chain_ids:
       if seen_cid := seen_label_chain_ids.intersection(struc.chains):
         raise ValueError(
-            f'Chain IDs {seen_cid} from strucs[{i}] also exist in other'
-            ' members of strucs. All given structures must have unique chain'
-            ' IDs. Consider setting assign_unique_chain_ids=True.'
+          f"Chain IDs {seen_cid} from strucs[{i}] also exist in other"
+          " members of strucs. All given structures must have unique chain"
+          " IDs. Consider setting assign_unique_chain_ids=True."
         )
       seen_label_chain_ids.update(struc.chains)
 
     if struc.chemical_components_data is not None:
-      chemical_components_data.update(struc.chemical_components_data.chem_comp)  # pytype: disable=attribute-error  # always-use-property-annotation
+      chemical_components_data.update(
+        struc.chemical_components_data.chem_comp
+      )  # pytype: disable=attribute-error  # always-use-property-annotation
 
   concatted_struc = table.concat_databases(strucs)
-  name = name if name is not None else '_'.join(s.name for s in strucs)
+  name = name if name is not None else "_".join(s.name for s in strucs)
   # Chain IDs (label and author) are fixed at this point, fix also entity IDs.
   if assign_unique_chain_ids or assign_unique_entity_ids:
     numeric_ids = np.arange(1, concatted_struc.num_chains + 1)
-    entity_id = np.char.mod('%d', numeric_ids).astype(object)
+    entity_id = np.char.mod("%d", numeric_ids).astype(object)
     chains = concatted_struc.chains_table.copy_and_update(entity_id=entity_id)
   else:
     chains = concatted_struc.chains_table
 
   return concatted_struc.copy_and_update(
-      name=name,
-      release_date=None,
-      resolution=None,
-      structure_method=None,
-      bioassembly_data=None,
-      chemical_components_data=(
-          struc_chem_comps.ChemicalComponentsData(chemical_components_data)
-          if chemical_components_data
-          else None
-      ),
-      chains=chains,
-      skip_validation=True,  # Already validated by table.concat_databases.
+    name=name,
+    release_date=None,
+    resolution=None,
+    structure_method=None,
+    bioassembly_data=None,
+    chemical_components_data=(
+      struc_chem_comps.ChemicalComponentsData(chemical_components_data)
+      if chemical_components_data
+      else None
+    ),
+    chains=chains,
+    skip_validation=True,  # Already validated by table.concat_databases.
   )
 
 
 def multichain_residue_index(
-    struc: Structure, chain_offset: int = 9000, between_chain_buffer: int = 1000
+  struc: Structure, chain_offset: int = 9000, between_chain_buffer: int = 1000
 ) -> np.ndarray:
   """Compute a residue index array that is monotonic across all chains.
 
@@ -3237,26 +3159,24 @@ def multichain_residue_index(
     assert res_id_range < chain_offset
   chain_id_int = struc.chain_id
   monotonic_chain_id_int = np.concatenate(
-      ([0], np.cumsum(chain_id_int[1:] != chain_id_int[:-1]))
+    ([0], np.cumsum(chain_id_int[1:] != chain_id_int[:-1]))
   )
-  return struc.res_id + monotonic_chain_id_int * (
-      chain_offset + between_chain_buffer
-  )
+  return struc.res_id + monotonic_chain_id_int * (chain_offset + between_chain_buffer)
 
 
 def make_empty_structure() -> Structure:
   """Returns a new structure consisting of empty array fields."""
   return Structure(
-      chains=structure_tables.Chains.make_empty(),
-      residues=structure_tables.Residues.make_empty(),
-      atoms=structure_tables.Atoms.make_empty(),
-      bonds=structure_tables.Bonds.make_empty(),
+    chains=structure_tables.Chains.make_empty(),
+    residues=structure_tables.Residues.make_empty(),
+    atoms=structure_tables.Atoms.make_empty(),
+    bonds=structure_tables.Bonds.make_empty(),
   )
 
 
 def enumerate_residues(
-    atom_iter: Iterable[Mapping[str, Any]],
-    all_residues: AllResidues | None = None,
+  atom_iter: Iterable[Mapping[str, Any]],
+  all_residues: AllResidues | None = None,
 ) -> Iterator[tuple[int, Mapping[str, Any]]]:
   """Provides a zero-indexed enumeration of residues in an atom iterable.
 
@@ -3274,7 +3194,7 @@ def enumerate_residues(
     prev_res = None
     res_i = -1
     for atom in atom_iter:
-      res = (atom['chain_id'], atom['res_id'])
+      res = (atom["chain_id"], atom["res_id"])
       if res != prev_res:
         prev_res = res
         res_i += 1
@@ -3284,21 +3204,15 @@ def enumerate_residues(
     prev_chain = None
     res_i = 0
     for atom in atom_iter:
-      chain_id = atom['chain_id']
+      chain_id = atom["chain_id"]
       if chain_id not in all_residues:
-        raise ValueError(
-            f'Atom {atom} does not belong to any residue in all_residues.'
-        )
+        raise ValueError(f"Atom {atom} does not belong to any residue in all_residues.")
       if chain_id != prev_chain:
         prev_chain = chain_id
-        all_res_seq.extend(
-            (chain_id, res_id) for (_, res_id) in all_residues[chain_id]
-        )
-      res = (chain_id, atom['res_id'])
+        all_res_seq.extend((chain_id, res_id) for (_, res_id) in all_residues[chain_id])
+      res = (chain_id, atom["res_id"])
       while res_i < len(all_res_seq) and res != all_res_seq[res_i]:
         res_i += 1
       if res_i == len(all_res_seq):
-        raise ValueError(
-            f'Atom {atom} does not belong to a residue in all_residues.'
-        )
+        raise ValueError(f"Atom {atom} does not belong to a residue in all_residues.")
       yield res_i, atom

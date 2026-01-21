@@ -12,16 +12,17 @@
 
 from collections.abc import Collection, Sequence
 
-from alphafold3 import structure
-from alphafold3.structure import mmcif
 import numpy as np
 import scipy
 
+from alphafold3 import structure
+from alphafold3.structure import mmcif
+
 
 def _make_atom_has_clash_mask(
-    kd_query_result: np.ndarray,
-    struc: structure.Structure,
-    ignore_chains: Collection[str],
+  kd_query_result: np.ndarray,
+  struc: structure.Structure,
+  ignore_chains: Collection[str],
 ) -> np.ndarray:
   """Returns a boolean NumPy array representing whether each atom has a clash.
 
@@ -43,11 +44,7 @@ def _make_atom_has_clash_mask(
       if chain_c in ignore_chains:
         continue
       islig_c = struc.is_ligand_mask[clashing_atom_index]
-      if (
-          clashing_atom_index == atom_index
-          or chain_i == chain_c
-          or islig_i != islig_c
-      ):
+      if clashing_atom_index == atom_index or chain_i == chain_c or islig_i != islig_c:
         # Ignore clashes within chain or between ligand and polymer.
         continue
       atom_is_clashing[atom_index] = True
@@ -55,9 +52,9 @@ def _make_atom_has_clash_mask(
 
 
 def find_clashing_chains(
-    struc: structure.Structure,
-    clash_thresh_angstrom: float = 1.7,
-    clash_thresh_fraction: float = 0.3,
+  struc: structure.Structure,
+  clash_thresh_angstrom: float = 1.7,
+  clash_thresh_fraction: float = 0.3,
 ) -> Sequence[str]:
   """Finds chains that clash with others.
 
@@ -82,7 +79,7 @@ def find_clashing_chains(
     ValueError: If `clash_thresh_fraction` is not in range (0,1].
   """
   if not 0 < clash_thresh_fraction <= 1:
-    raise ValueError('clash_thresh_fraction must be in range (0,1]')
+    raise ValueError("clash_thresh_fraction must be in range (0,1]")
 
   struc_backbone = struc.filter_polymers_to_single_atom_per_res()
   if struc_backbone.num_chains == 0:
@@ -96,14 +93,16 @@ def find_clashing_chains(
 
   # For each atom coordinate, find all atoms within the clash thresh radius.
   clashing_per_atom = coord_kdtree.query_ball_point(
-      struc_backbone.coords, r=clash_thresh_angstrom
+    struc_backbone.coords, r=clash_thresh_angstrom
   )
   chain_ids = struc_backbone.chains
   if struc_backbone.atom_occupancy is not None:
-    chain_occupancy = np.array([
+    chain_occupancy = np.array(
+      [
         np.mean(struc_backbone.atom_occupancy[start:end])
         for start, end in struc_backbone.iter_chain_ranges()
-    ])
+      ]
+    )
   else:
     chain_occupancy = None
 
@@ -112,12 +111,14 @@ def find_clashing_chains(
   for _ in range(len(chain_ids)):
     # Calculate maximally clashing.
     atom_has_clash = _make_atom_has_clash_mask(
-        clashing_per_atom, struc_backbone, chains_to_remove
+      clashing_per_atom, struc_backbone, chains_to_remove
     )
-    clashes_per_chain = np.array([
+    clashes_per_chain = np.array(
+      [
         atom_has_clash[start:end].mean()
         for start, end in struc_backbone.iter_chain_ranges()
-    ])
+      ]
+    )
     max_clash = np.max(clashes_per_chain)
     if max_clash <= clash_thresh_fraction:
       # None of the remaining chains exceed the clash fraction threshold, so
@@ -129,7 +130,7 @@ def find_clashing_chains(
     if chain_occupancy is not None:
       occupancy_clashing = chain_occupancy[most_clashes]
       last_lowest_occupancy = (
-          len(occupancy_clashing) - np.argmin(occupancy_clashing[::-1]) - 1
+        len(occupancy_clashing) - np.argmin(occupancy_clashing[::-1]) - 1
       )
       worst_and_last = most_clashes[last_lowest_occupancy]
     else:

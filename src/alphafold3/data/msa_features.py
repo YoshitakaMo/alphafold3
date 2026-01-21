@@ -10,66 +10,68 @@
 
 """Utilities for computing MSA features."""
 
-from collections.abc import Sequence
 import re
-from alphafold3.constants import mmcif_names
+from collections.abc import Sequence
+
 import numpy as np
 
+from alphafold3.constants import mmcif_names
+
 _PROTEIN_TO_ID = {
-    'A': 0,
-    'B': 3,  # Same as D.
-    'C': 4,
-    'D': 3,
-    'E': 6,
-    'F': 13,
-    'G': 7,
-    'H': 8,
-    'I': 9,
-    'J': 20,  # Same as unknown (X).
-    'K': 11,
-    'L': 10,
-    'M': 12,
-    'N': 2,
-    'O': 20,  # Same as unknown (X).
-    'P': 14,
-    'Q': 5,
-    'R': 1,
-    'S': 15,
-    'T': 16,
-    'U': 4,  # Same as C.
-    'V': 19,
-    'W': 17,
-    'X': 20,
-    'Y': 18,
-    'Z': 6,  # Same as E.
-    '-': 21,
+  "A": 0,
+  "B": 3,  # Same as D.
+  "C": 4,
+  "D": 3,
+  "E": 6,
+  "F": 13,
+  "G": 7,
+  "H": 8,
+  "I": 9,
+  "J": 20,  # Same as unknown (X).
+  "K": 11,
+  "L": 10,
+  "M": 12,
+  "N": 2,
+  "O": 20,  # Same as unknown (X).
+  "P": 14,
+  "Q": 5,
+  "R": 1,
+  "S": 15,
+  "T": 16,
+  "U": 4,  # Same as C.
+  "V": 19,
+  "W": 17,
+  "X": 20,
+  "Y": 18,
+  "Z": 6,  # Same as E.
+  "-": 21,
 }
 
 _RNA_TO_ID = {
-    # Map non-standard residues to UNK_NUCLEIC (N) -> 30
-    **{chr(i): 30 for i in range(ord('A'), ord('Z') + 1)},
-    # Continue the RNA indices from where Protein indices left off.
-    '-': 21,
-    'A': 22,
-    'G': 23,
-    'C': 24,
-    'U': 25,
+  # Map non-standard residues to UNK_NUCLEIC (N) -> 30
+  **{chr(i): 30 for i in range(ord("A"), ord("Z") + 1)},
+  # Continue the RNA indices from where Protein indices left off.
+  "-": 21,
+  "A": 22,
+  "G": 23,
+  "C": 24,
+  "U": 25,
 }
 
 _DNA_TO_ID = {
-    # Map non-standard residues to UNK_NUCLEIC (N) -> 30
-    **{chr(i): 30 for i in range(ord('A'), ord('Z') + 1)},
-    # Continue the DNA indices from where DNA indices left off.
-    '-': 21,
-    'A': 26,
-    'G': 27,
-    'C': 28,
-    'T': 29,
+  # Map non-standard residues to UNK_NUCLEIC (N) -> 30
+  **{chr(i): 30 for i in range(ord("A"), ord("Z") + 1)},
+  # Continue the DNA indices from where DNA indices left off.
+  "-": 21,
+  "A": 26,
+  "G": 27,
+  "C": 28,
+  "T": 29,
 }
 
 
 def extract_msa_features(
-    msa_sequences: Sequence[str], chain_poly_type: str
+  msa_sequences: Sequence[str], chain_poly_type: str
 ) -> tuple[np.ndarray, np.ndarray]:
   """Extracts MSA features.
 
@@ -106,7 +108,7 @@ def extract_msa_features(
   elif chain_poly_type == mmcif_names.PROTEIN_CHAIN:
     char_map = _PROTEIN_TO_ID
   else:
-    raise ValueError(f'{chain_poly_type=} invalid.')
+    raise ValueError(f"{chain_poly_type=} invalid.")
 
   # Handle empty MSA.
   if not msa_sequences:
@@ -132,7 +134,7 @@ def extract_msa_features(
       msa_id = char_map.get(current, -1)
       if msa_id == -1:
         if not current.islower():
-          problems.append(f'({problem_row}, {problem_col}):{current}')
+          problems.append(f"({problem_row}, {problem_col}):{current}")
         deletion_count += 1
       else:
         # Check the access is safe before writing to the array.
@@ -146,15 +148,15 @@ def extract_msa_features(
       problem_col += 1
     if problems:
       raise ValueError(
-          f"Unknown residues in MSA: {', '.join(problems)}. "
-          f'target_sequence: {msa_sequences[0]}'
+        f"Unknown residues in MSA: {', '.join(problems)}. "
+        f"target_sequence: {msa_sequences[0]}"
       )
     if upper_count != num_cols:
       raise ValueError(
-          'Invalid shape all strings must have the same number '
-          'of non-lowercase characters; First string has '
-          f"{num_cols} non-lowercase characters but '{msa_sequence}' has "
-          f'{upper_count}. target_sequence: {msa_sequences[0]}'
+        "Invalid shape all strings must have the same number "
+        "of non-lowercase characters; First string has "
+        f"{num_cols} non-lowercase characters but '{msa_sequence}' has "
+        f"{upper_count}. target_sequence: {msa_sequences[0]}"
       )
 
   return msa_arr, deletions_arr
@@ -164,17 +166,17 @@ def extract_msa_features(
 # `db|UniqueIdentifier|EntryName`, e.g. `sp|P0C2L1|A3X1_LOXLA` or
 # `tr|A0A146SKV9|A0A146SKV9_FUNHE`.
 _UNIPROT_ENTRY_NAME_REGEX = re.compile(
-    # UniProtKB TrEMBL or SwissProt database.
-    r'(?:tr|sp)\|'
-    # A primary accession number of the UniProtKB entry.
-    r'(?:[A-Z0-9]{6,10})'
-    # Occasionally there is an isoform suffix (e.g. _1 or _10) which we ignore.
-    r'(?:_\d+)?\|'
-    # TrEMBL: Same as AccessionId (6-10 characters).
-    # SwissProt: A mnemonic protein identification code (1-5 characters).
-    r'(?:[A-Z0-9]{1,10}_)'
-    # A mnemonic species identification code.
-    r'(?P<SpeciesId>[A-Z0-9]{1,5})'
+  # UniProtKB TrEMBL or SwissProt database.
+  r"(?:tr|sp)\|"
+  # A primary accession number of the UniProtKB entry.
+  r"(?:[A-Z0-9]{6,10})"
+  # Occasionally there is an isoform suffix (e.g. _1 or _10) which we ignore.
+  r"(?:_\d+)?\|"
+  # TrEMBL: Same as AccessionId (6-10 characters).
+  # SwissProt: A mnemonic protein identification code (1-5 characters).
+  r"(?:[A-Z0-9]{1,10}_)"
+  # A mnemonic species identification code.
+  r"(?P<SpeciesId>[A-Z0-9]{1,5})"
 )
 
 
@@ -194,9 +196,9 @@ def extract_species_ids(msa_descriptions: Sequence[str]) -> Sequence[str]:
     msa_description = msa_description.strip()
     match = _UNIPROT_ENTRY_NAME_REGEX.match(msa_description)
     if match:
-      species_ids.append(match.group('SpeciesId'))
+      species_ids.append(match.group("SpeciesId"))
     else:
       # Handle cases where the regex doesn't match
       # (e.g., append None or raise an error depending on your needs)
-      species_ids.append('')
+      species_ids.append("")
   return species_ids

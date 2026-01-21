@@ -13,14 +13,15 @@
 import dataclasses
 import datetime
 from typing import Self
+
 from alphafold3.constants import mmcif_names
 
 
 def _validate_chain_poly_type(chain_poly_type: str) -> None:
   if chain_poly_type not in mmcif_names.STANDARD_POLYMER_CHAIN_TYPES:
     raise ValueError(
-        'chain_poly_type must be one of'
-        f' {mmcif_names.STANDARD_POLYMER_CHAIN_TYPES}: {chain_poly_type}'
+      "chain_poly_type must be one of"
+      f" {mmcif_names.STANDARD_POLYMER_CHAIN_TYPES}: {chain_poly_type}"
     )
 
 
@@ -116,7 +117,7 @@ class RunConfig:
 
   def __post_init__(self):
     if self.crop_size is not None and self.crop_size < 2:
-      raise ValueError(f'crop_size must be None or >= 2: {self.crop_size}')
+      raise ValueError(f"crop_size must be None or >= 2: {self.crop_size}")
 
     _validate_chain_poly_type(self.chain_poly_type)
 
@@ -132,7 +133,7 @@ class HmmsearchConfig:
   inc_e: float
   dom_e: float
   incdom_e: float
-  alphabet: str = 'amino'
+  alphabet: str = "amino"
   filter_f1: float | None = None
   filter_f2: float | None = None
   filter_f3: float | None = None
@@ -167,12 +168,12 @@ class TemplateFilterConfig:
   def no_op_filter(cls) -> Self:
     """Returns a config for filter that keeps everything."""
     return cls(
-        max_subsequence_ratio=None,
-        min_align_ratio=None,
-        min_hit_length=None,
-        deduplicate_sequences=False,
-        max_hits=None,
-        max_template_date=datetime.date(3000, 1, 1),  # Very far in the future.
+      max_subsequence_ratio=None,
+      min_align_ratio=None,
+      min_hit_length=None,
+      deduplicate_sequences=False,
+      max_hits=None,
+      max_template_date=datetime.date(3000, 1, 1),  # Very far in the future.
     )
 
 

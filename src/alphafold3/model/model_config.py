@@ -13,8 +13,9 @@
 from collections.abc import Sequence
 from typing import Literal, TypeAlias
 
-from alphafold3.common import base_config
 import tokamax
+
+from alphafold3.common import base_config
 
 _Shape2DType: TypeAlias = tuple[int | None, int | None]
 
@@ -22,14 +23,12 @@ _Shape2DType: TypeAlias = tuple[int | None, int | None]
 class GlobalConfig(base_config.BaseConfig):
   """Global configuration for the AlphaFold3 model."""
 
-  bfloat16: Literal['all', 'none', 'intermediate'] = 'all'
-  final_init: Literal['zeros', 'linear'] = 'zeros'
+  bfloat16: Literal["all", "none", "intermediate"] = "all"
+  final_init: Literal["zeros", "linear"] = "zeros"
   pair_attention_chunk_size: Sequence[_Shape2DType] = ((1536, 128), (None, 32))
   pair_transition_shard_spec: Sequence[_Shape2DType] = (
-      (2048, None),
-      (None, 1024),
+    (2048, None),
+    (None, 1024),
   )
   # Note: flash_attention_implementation = 'xla' means no flash attention.
-  flash_attention_implementation: tokamax.DotProductAttentionImplementation = (
-      'triton'
-  )
+  flash_attention_implementation: tokamax.DotProductAttentionImplementation = "triton"

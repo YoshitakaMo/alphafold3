@@ -18,13 +18,13 @@ class AlignmentError(Exception):
 
 
 def realign_hit_to_structure(
-    *,
-    hit_sequence: str,
-    hit_start_index: int,
-    hit_end_index: int,
-    full_length: int,
-    structure_sequence: str,
-    query_to_hit_mapping: Mapping[int, int],
+  *,
+  hit_sequence: str,
+  hit_start_index: int,
+  hit_end_index: int,
+  full_length: int,
+  structure_sequence: str,
+  query_to_hit_mapping: Mapping[int, int],
 ) -> Mapping[int, int]:
   """Realigns the hit sequence to the Structure sequence.
 
@@ -65,16 +65,16 @@ def realign_hit_to_structure(
   max_num_gaps = full_length - len(structure_sequence)
   if max_num_gaps < 0:
     raise AlignmentError(
-        f'The Structure sequence ({len(structure_sequence)}) '
-        f'must be shorter than the PDB seqres sequence ({full_length}):\n'
-        f'Structure sequence : {structure_sequence}\n'
-        f'PDB seqres sequence: {hit_sequence}'
+      f"The Structure sequence ({len(structure_sequence)}) "
+      f"must be shorter than the PDB seqres sequence ({full_length}):\n"
+      f"Structure sequence : {structure_sequence}\n"
+      f"PDB seqres sequence: {hit_sequence}"
     )
 
   if len(hit_sequence) != hit_end_index - hit_start_index:
     raise AlignmentError(
-        f'The difference of {hit_end_index=} and {hit_start_index=} does not '
-        f'equal to the length of the {hit_sequence}: {len(hit_sequence)}'
+      f"The difference of {hit_end_index=} and {hit_start_index=} does not "
+      f"equal to the length of the {hit_sequence}: {len(hit_sequence)}"
     )
 
   best_score = -1
@@ -90,10 +90,10 @@ def realign_hit_to_structure(
     structure_subseq = structure_sequence[start:end]
 
     new_query_to_hit_mapping, score = _remap_to_struc_seq(
-        hit_seq=hit_sequence,
-        struc_seq=structure_subseq,
-        max_num_gaps=max_num_gaps - num_gaps_before_subseq,
-        mapping=query_to_hit_mapping,
+      hit_seq=hit_sequence,
+      struc_seq=structure_subseq,
+      max_num_gaps=max_num_gaps - num_gaps_before_subseq,
+      mapping=query_to_hit_mapping,
     )
     if score >= best_score:
       # Use >= to prefer matches with larger number of gaps before.
@@ -105,11 +105,11 @@ def realign_hit_to_structure(
 
 
 def _remap_to_struc_seq(
-    *,
-    hit_seq: str,
-    struc_seq: str,
-    max_num_gaps: int,
-    mapping: Mapping[int, int],
+  *,
+  hit_seq: str,
+  struc_seq: str,
+  max_num_gaps: int,
+  mapping: Mapping[int, int],
 ) -> tuple[Mapping[int, int], int]:
   """Remaps the query -> hit mapping to match the actual Structure sequence.
 

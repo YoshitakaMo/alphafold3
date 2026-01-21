@@ -18,7 +18,6 @@ dependencies = [
     "absl-py>=2.3.1",
     "dm-haiku==0.0.16",
     "jax==0.8.1",
-    "jax[cuda12]==0.8.1",
     "numpy",
     "rdkit==2024.3.5",
     "setuptools==78.1.0",
@@ -30,14 +29,31 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=6.0",
+    "pytest>=8.3.3",
+    "ruff>=0.8.2",
+    "ty"
 ]
 
 [tool.uv]
 package = true
-environments = [
-    "sys_platform == 'linux' and platform_machine == 'x86_64'",
-    "sys_platform == 'linux' and platform_machine == 'aarch64'",
+
+[tool.ruff]
+indent-width = 2
+line-length = 88 # Same as Black.
+exclude = [".ruff_cache", ".ruff.toml", ".ruff.lock"]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "F", # Flake8
+    "B", # Black
+    "I", # isort
+    "E", # error
+    "W", # warning
 ]
+ignore = ["F401", "E501"]
+fixable = ["ALL"]
+unfixable = []
 
 [tool.scikit-build]
 wheel.exclude = [

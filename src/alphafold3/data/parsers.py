@@ -13,9 +13,7 @@
 from collections.abc import Iterable, Sequence
 from typing import IO, TypeAlias
 
-from alphafold3.cpp import fasta_iterator
-from alphafold3.cpp import msa_conversion
-
+from alphafold3.cpp import fasta_iterator, msa_conversion
 
 DeletionMatrix: TypeAlias = Sequence[Sequence[int]]
 
@@ -68,20 +66,20 @@ def convert_a3m_to_stockholm(a3m: str, max_seqs: int | None = None) -> str:
     sequences = sequences[:max_seqs]
     descriptions = descriptions[:max_seqs]
 
-  stockholm = ['# STOCKHOLM 1.0', '']
+  stockholm = ["# STOCKHOLM 1.0", ""]
 
   # Add the Stockholm header with the sequence metadata.
   names = []
   for i, description in enumerate(descriptions):
-    name, _, rest = description.replace('\t', ' ').partition(' ')
+    name, _, rest = description.replace("\t", " ").partition(" ")
     # Ensure that the names are unique - stockholm format requires that
     # the sequence names are unique.
-    name = f'{name}_{i}'
+    name = f"{name}_{i}"
     names.append(name)
     # Avoid zero-length description due to historic hmmbuild parsing bug.
-    desc = rest.strip() or '<EMPTY>'
-    stockholm.append(f'#=GS {name.strip()} DE {desc}')
-  stockholm.append('')
+    desc = rest.strip() or "<EMPTY>"
+    stockholm.append(f"#=GS {name.strip()} DE {desc}")
+  stockholm.append("")
 
   # Convert insertions in a sequence into gaps in all other sequences that don't
   # have an insertion in that column as well.
@@ -91,21 +89,21 @@ def convert_a3m_to_stockholm(a3m: str, max_seqs: int | None = None) -> str:
   max_name_width = max(len(name) for name in names)
   for name, sequence in zip(names, sequences, strict=True):
     # Align the names to the left and pad with spaces to the maximum length.
-    stockholm.append(f'{name:<{max_name_width}s} {sequence}')
+    stockholm.append(f"{name:<{max_name_width}s} {sequence}")
 
   # Add the reference annotation for the query (the first sequence).
-  ref_annotation = ''.join('.' if c == '-' else 'x' for c in sequences[0])
-  stockholm.append(f'{"#=GC RF":<{max_name_width}s} {ref_annotation}')
-  stockholm.append('//')
+  ref_annotation = "".join("." if c == "-" else "x" for c in sequences[0])
+  stockholm.append(f"{'#=GC RF':<{max_name_width}s} {ref_annotation}")
+  stockholm.append("//")
 
-  return '\n'.join(stockholm)
+  return "\n".join(stockholm)
 
 
 def convert_stockholm_to_a3m(
-    stockholm: IO[str],
-    max_sequences: int | None = None,
-    remove_first_row_gaps: bool = True,
-    linewidth: int | None = None,
+  stockholm: IO[str],
+  max_sequences: int | None = None,
+  remove_first_row_gaps: bool = True,
+  linewidth: int | None = None,
 ) -> str:
   """Converts MSA in Stockholm format to the A3M format."""
   descriptions = {}
@@ -113,35 +111,35 @@ def convert_stockholm_to_a3m(
   reached_max_sequences = False
 
   if linewidth is not None and linewidth <= 0:
-    raise ValueError('linewidth must be > 0 or None')
+    raise ValueError("linewidth must be > 0 or None")
 
   for line in stockholm:
     reached_max_sequences = max_sequences and len(sequences) >= max_sequences
     line = line.strip()
     # Ignore blank lines, markup and end symbols - remainder are alignment
     # sequence parts.
-    if not line or line.startswith(('#', '//')):
+    if not line or line.startswith(("#", "//")):
       continue
     seqname, aligned_seq = line.split(maxsplit=1)
     if seqname not in sequences:
       if reached_max_sequences:
         continue
-      sequences[seqname] = ''
+      sequences[seqname] = ""
     sequences[seqname] += aligned_seq
 
   if not sequences:
-    return ''
+    return ""
 
   stockholm.seek(0)
   for line in stockholm:
     line = line.strip()
-    if line[:4] == '#=GS':
+    if line[:4] == "#=GS":
       # Description row - example format is:
       # #=GS UniRef90_Q9H5Z4/4-78            DE [subseq from] cDNA: FLJ22755 ...
       columns = line.split(maxsplit=3)
       seqname, feature = columns[1:3]
-      value = columns[3] if len(columns) == 4 else ''
-      if feature != 'DE':
+      value = columns[3] if len(columns) == 4 else ""
+      if feature != "DE":
         continue
       if reached_max_sequences and seqname not in sequences:
         continue
@@ -158,21 +156,19 @@ def convert_stockholm_to_a3m(
   for seqname, sto_sequence in sequences.items():
     if remove_first_row_gaps:
       a3m_sequences[seqname] = msa_conversion.align_sequence_to_gapless_query(
-          sequence=sto_sequence, query_sequence=query_sequence
-      ).replace('.', '')
+        sequence=sto_sequence, query_sequence=query_sequence
+      ).replace(".", "")
     else:
-      a3m_sequences[seqname] = sto_sequence.replace('.', '')
+      a3m_sequences[seqname] = sto_sequence.replace(".", "")
 
   fasta_chunks = []
 
   for seqname, seq in a3m_sequences.items():
-    fasta_chunks.append(f'>{seqname} {descriptions.get(seqname, "")}')
+    fasta_chunks.append(f">{seqname} {descriptions.get(seqname, '')}")
 
     if linewidth:
-      fasta_chunks.extend(
-          seq[i : linewidth + i] for i in range(0, len(seq), linewidth)
-      )
+      fasta_chunks.extend(seq[i : linewidth + i] for i in range(0, len(seq), linewidth))
     else:
       fasta_chunks.append(seq)
 
-  return '\n'.join(fasta_chunks) + '\n'  # Include terminating newline.
+  return "\n".join(fasta_chunks) + "\n"  # Include terminating newline.

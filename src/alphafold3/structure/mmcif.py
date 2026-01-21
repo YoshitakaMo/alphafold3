@@ -16,18 +16,16 @@ together with docstrings. The cif_dict.CifDict class behaves like an immutable
 Python dictionary (some methods are not implemented though).
 """
 
-from collections.abc import Callable, Mapping, Sequence
 import functools
 import itertools
 import re
+from collections.abc import Callable, Mapping, Sequence
 from typing import ParamSpec, TypeAlias, TypeVar
 
-from alphafold3.constants import chemical_components
-from alphafold3.cpp import cif_dict
-from alphafold3.cpp import mmcif_atom_site
-from alphafold3.cpp import mmcif_struct_conn
-from alphafold3.cpp import string_array
 import numpy as np
+
+from alphafold3.constants import chemical_components
+from alphafold3.cpp import cif_dict, mmcif_atom_site, mmcif_struct_conn, string_array
 
 Mmcif = cif_dict.CifDict
 

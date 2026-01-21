@@ -13,12 +13,11 @@
 import dataclasses
 import re
 
-
 # Sequences coming from UniProtKB database come in the
 # `db|UniqueIdentifier|EntryName` format, e.g. `tr|A0A146SKV9|A0A146SKV9_FUNHE`
 # or `sp|P0C2L1|A3X1_LOXLA` (for TREMBL/Swiss-Prot respectively).
 _UNIPROT_PATTERN = re.compile(
-    r"""
+  r"""
     ^
     # UniProtKB/TrEMBL or UniProtKB/Swiss-Prot
     (?:tr|sp)
@@ -38,13 +37,13 @@ _UNIPROT_PATTERN = re.compile(
     (?:_\d+)?
     $
     """,
-    re.VERBOSE,
+  re.VERBOSE,
 )
 
 
 @dataclasses.dataclass(frozen=True)
 class Identifiers:
-  species_id: str = ''
+  species_id: str = ""
 
 
 def _parse_sequence_identifier(msa_sequence_identifier: str) -> Identifiers:
@@ -63,7 +62,7 @@ def _parse_sequence_identifier(msa_sequence_identifier: str) -> Identifiers:
   """
   matches = re.search(_UNIPROT_PATTERN, msa_sequence_identifier.strip())
   if matches:
-    return Identifiers(species_id=matches.group('SpeciesIdentifier'))
+    return Identifiers(species_id=matches.group("SpeciesIdentifier"))
   return Identifiers()
 
 
@@ -71,7 +70,7 @@ def _extract_sequence_identifier(description: str) -> str | None:
   """Extracts sequence identifier from description. Returns None if no match."""
   split_description = description.split()
   if split_description:
-    return split_description[0].partition('/')[0]
+    return split_description[0].partition("/")[0]
   else:
     return None
 
