@@ -21,17 +21,23 @@ dependencies = [
     "jax[cuda12]==0.8.1",
     "numpy",
     "rdkit==2024.3.5",
-    "triton==3.1.0",
+    "setuptools==78.1.0",
+    "tokamax==0.0.8",
     "tqdm",
     "zstandard",
-    "gemmi>=0.7.4",
 ]
 
-[tool.uv.sources]
-triton = { git = "https://github.com/triton-lang/triton.git", tag = "v3.4.0" }
+[dependency-groups]
+dev = [
+    "pytest>=6.0",
+]
 
-[project.optional-dependencies]
-test = ["pytest>=6.0"]
+[tool.uv]
+package = true
+environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'linux' and platform_machine == 'aarch64'",
+]
 
 [tool.scikit-build]
 wheel.exclude = [
