@@ -11,21 +11,18 @@ build-backend = "scikit_build_core.build"
 [project]
 name = "alphafold3"
 version = "3.0.1"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 readme = "README.md"
 license = {file = "LICENSE"}
 dependencies = [
-    "absl-py",
-    "dm-haiku==0.0.14",
-    "dm-tree",
-    "jax==0.6.0",
-    "jax-triton",
-    "jaxtyping",
+    "absl-py>=2.3.1",
+    "dm-haiku==0.0.16",
+    "jax==0.8.1",
+    "jax[cuda12]==0.8.1",
     "numpy",
     "rdkit==2024.3.5",
-    "triton==3.4.0",
+    "triton==3.1.0",
     "tqdm",
-    "typeguard==2.13.3",
     "zstandard",
     "gemmi>=0.7.4",
 ]
@@ -35,19 +32,6 @@ triton = { git = "https://github.com/triton-lang/triton.git", tag = "v3.4.0" }
 
 [project.optional-dependencies]
 test = ["pytest>=6.0"]
-
-[tool.ruff]
-indent-width = 2
-
-[dependency-groups]
-dev = [
-    "mypy>=1.13.0",
-    "notebook>=7.2.2",
-    "pandas>=2.2.3",
-    "pytest>=8.3.3",
-    "pyyaml>=6.0.2",
-    "ruff>=0.8.2",
-]
 
 [tool.scikit-build]
 wheel.exclude = [
