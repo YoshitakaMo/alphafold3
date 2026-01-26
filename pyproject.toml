@@ -31,6 +31,7 @@ dev = [
     "pytest>=6.0",
     "pytest>=8.3.3",
     "ruff>=0.8.2",
+    "notebook",
     "ty"
 ]
 
